@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenBox</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Unified Single Header: OpenBox Logo + Mode Tabs + Presets Dropdown + Actions (1 Single Row) -->
+        <header class="header unified-top-bar compact-top-bar" id="main-tabs">
+            <!-- Brand Logo -->
+            <div class="header-brand" title="OpenBox v1.0.0">
+                <img src="assets/logo_openbox.svg" alt="OpenBox" class="header-logo" onerror="this.onerror=null; this.src='../assets/SVG/logo_openbox.svg';" />
+            </div>
+
+            <!-- Mode Tab 1: Paragraph & Lines -->
+            <button type="button" class="square-icon-btn studio-tab-btn active" id="tab-btn-paragraph" data-tab="paragraph" title="Paragraph & Lines (تظليل الفقرة والأسطر)">
+                <!-- Lucide: AlignJustify -->
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/></svg>
+            </button>
+
+            <!-- Mode Tab 2: Phrase Highlight -->
+            <button type="button" class="square-icon-btn studio-tab-btn" id="tab-btn-phrases" data-tab="phrases" title="Phrase Highlight (تظليل العبارات المحددة)">
+                <!-- Lucide: Highlighter -->
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
+            </button>
+
+            <!-- Style Presets Custom Dropdown (Free flexible width to fill remaining space) -->
+            <div class="custom-dropdown preset-dropdown-wrap" id="preset-dropdown-wrap">
+                <select id="preset-select" style="display: none;" title="Preset / Effect Style (قالب ونمط التأثير)">
+                    <option value="typewriter" selected>Typewriter Sync (Core)</option>
+                    <option value="vox">Vox Documentary</option>
+                    <option value="clean">Clean Underline</option>
+                </select>
+                <button type="button" class="custom-dropdown-trigger" id="preset-dropdown-trigger" title="Select Preset Style (اختر القالب)">
+                    <span class="custom-dropdown-label" id="preset-dropdown-label">Typewriter Sync (Core)</span>
+                    <span class="custom-dropdown-caret">▾</span>
+                </button>
+                <div class="custom-dropdown-menu" id="preset-dropdown-menu" style="display: none;">
+                    <div class="custom-dropdown-header">Default Presets</div>
+                    <div class="custom-dropdown-item active" data-value="typewriter">Typewriter Sync (Core)</div>
+                    <div class="custom-dropdown-item" data-value="vox">Vox Documentary</div>
+                    <div class="custom-dropdown-item" data-value="clean">Clean Underline</div>
+                </div>
+            </div>
+
+            <!-- Save Preset Button -->
+            <button type="button" class="square-icon-btn" id="btn-save-preset" title="Save Preset (حفظ كقالب جديد)">
+                <!-- Lucide: Save -->
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            </button>
+
+            <!-- Delete Custom Preset Button -->
+            <button type="button" class="square-icon-btn danger" id="btn-delete-preset" style="display: none;" title="Delete Custom Preset (حذف القالب)">
+                <!-- Lucide: Trash2 -->
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
+        </header>
+
+        <!-- ============================================================
+             TAB VIEW 1: PARAGRAPH & LINES (Full Block Mode)
+             ============================================================ -->
+        <div id="view-paragraph" class="tab-view active">
+            <!-- Target Status Strip -->
+            <div class="target-strip">
+                <span class="target-indicator-dot"></span>
+                <span class="target-strip-label">TARGET:</span>
+                <span id="target-info-name" class="target-strip-val">Select Text Layer</span>
+                <span id="target-fps-badge" class="target-fps-badge" title="Active Composition Frame Rate">30 FPS</span>
+            </div>
+
+            <!-- 3. Appearance & Precision Metrics Section -->
+            <section class="studio-card">
+                <!-- Hidden inputs to preserve 100% JS backward compatibility -->
+                <input type="hidden" id="style-select" value="box">
+                <input type="hidden" id="align-select" value="auto">
+                <span id="color-hex" style="display:none;">#3C4BB9</span>
+
+                <!-- Compact Toolbar Row: Shape Buttons + Direction Buttons + Color Button (All in 1 Row) -->
+                <div class="compact-appearance-row">
+                    <!-- 1. Shape Buttons Group -->
+                    <div class="icon-btn-group" title="Shape (شكل التظليل)">
+                        <button type="button" class="square-icon-btn shape-btn active" data-shape="box" title="Box (مستطيل كامل)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn shape-btn" data-shape="pill" title="Pill (كبسولة دائرية الأطراف)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="6"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn shape-btn" data-shape="marker" title="Marker (قلم ماركر)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn shape-btn" data-shape="underline" title="Underline (تسطير أسفل الكلمات)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="20" y2="20"/><path d="M6 4v7a6 6 0 0 0 12 0V4"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn shape-btn" data-shape="outline" title="Outline (إطار مفرغ)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="row-divider"></div>
+
+                    <!-- 2. Direction Buttons Group -->
+                    <div class="icon-btn-group" title="Direction (اتجاه التظليل)">
+                        <button type="button" class="square-icon-btn dir-btn active" data-dir="auto" title="Auto (تلقائي حسب لغة النص)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7 3 12l5 5"/><path d="m16 7 5 5-5 5"/><path d="M3 12h18"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn dir-btn" data-dir="ltr" title="LTR (من اليسار لليمين)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn dir-btn" data-dir="rtl" title="RTL (من اليمين لليسار)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn dir-btn" data-dir="center" title="Center (توسع من المنتصف)">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12H3m5-4-5 4 5 4"/><path d="M16 12h5m-5-4 5 4-5 4"/><line x1="12" x2="12" y1="5" y2="19"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="row-divider"></div>
+
+                    <!-- 3. Square Color Picker Button -->
+                    <div class="color-picker-square-wrap" title="Highlight Color (اختر اللون)">
+                        <input type="color" id="color-picker" value="#3C4BB9">
+                        <button type="button" class="square-icon-btn color-trigger-btn" id="btn-color-trigger" title="Highlight Color (اختر اللون)">
+                            <span class="color-dot" id="color-indicator-dot" style="background-color: #3C4BB9;"></span>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Swatches Bar -->
+                <div class="swatches-bar" id="paragraph-swatches">
+                    <button type="button" class="swatch-btn swatch-recent" id="recent-color-swatch" data-color="#ffd13b" style="background:#ffd13b" title="Last Chosen Color (آخر لون تم اختياره)"></button>
+                    <span class="swatch-divider"></span>
+                    <button type="button" class="swatch-btn active" data-color="#ffd13b" style="background:#ffd13b" title="Amber Yellow (أصفر عنبري)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ff9f1c" style="background:#ff9f1c" title="Sunset Orange (برتقالي دافئ)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ff3b5c" style="background:#ff3b5c" title="Coral Crimson (أحمر مرجاني)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ff6584" style="background:#ff6584" title="Hot Rose (وردي ناصع)"></button>
+                    <button type="button" class="swatch-btn" data-color="#a855f7" style="background:#a855f7" title="Vivid Purple (بنفسجي مشرق)"></button>
+                    <button type="button" class="swatch-btn" data-color="#4f46e5" style="background:#4f46e5" title="Electric Indigo (أزرق نيلي)"></button>
+                    <button type="button" class="swatch-btn" data-color="#00b4d8" style="background:#00b4d8" title="Cyan Teal (سماوي مائي)"></button>
+                    <button type="button" class="swatch-btn" data-color="#2ecc71" style="background:#2ecc71" title="Emerald Green (أخضر زمردي)"></button>
+                    <button type="button" class="swatch-btn" data-color="#a3e635" style="background:#a3e635" title="Lime Highlighter (أخضر ليموني)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ffffff" style="background:#ffffff" title="Pure White (أبيض ناصع)"></button>
+                </div>
+
+                <!-- Precision Metrics 4-in-1 Single Row (Pad X, Pad Y, Radius, Opacity) -->
+                <div class="metrics-grid-4">
+                    <!-- 1. Pad X -->
+                    <div class="precision-input-box compact-metric-box" title="Pad X: Horizontal Padding (توسيع أفقي)">
+                        <label class="scrub-label" data-target="pad-x" title="Pad X: Horizontal Padding (اسحب للتعديل)">
+                            <!-- Lucide: MoveHorizontal -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/></svg>
+                        </label>
+                        <div class="input-val-wrap">
+                            <input type="number" id="pad-x" value="10" min="0" max="200" step="1">
+                            <span class="unit-tag">px</span>
+                        </div>
+                        <div class="stepper-actions">
+                            <button type="button" class="step-arrow step-up" tabindex="-1" title="Increase">▲</button>
+                            <button type="button" class="step-arrow step-down" tabindex="-1" title="Decrease">▼</button>
+                        </div>
+                    </div>
+
+                    <!-- 2. Pad Y -->
+                    <div class="precision-input-box compact-metric-box" title="Pad Y: Vertical Padding (توسيع رأسي)">
+                        <label class="scrub-label" data-target="pad-y" title="Pad Y: Vertical Padding (اسحب للتعديل)">
+                            <!-- Lucide: MoveVertical -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 18 12 22 16 18"/><polyline points="8 6 12 2 16 6"/><line x1="12" x2="12" y1="2" y2="22"/></svg>
+                        </label>
+                        <div class="input-val-wrap">
+                            <input type="number" id="pad-y" value="10" min="0" max="100" step="1">
+                            <span class="unit-tag">px</span>
+                        </div>
+                        <div class="stepper-actions">
+                            <button type="button" class="step-arrow step-up" tabindex="-1" title="Increase">▲</button>
+                            <button type="button" class="step-arrow step-down" tabindex="-1" title="Decrease">▼</button>
+                        </div>
+                    </div>
+
+                    <!-- 3. Radius -->
+                    <div class="precision-input-box compact-metric-box" title="Corner Radius (استدارة الحواف)">
+                        <label class="scrub-label" data-target="roundness" title="Corner Radius (اسحب للتعديل)">
+                            <!-- Lucide: Maximize2 -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/></svg>
+                        </label>
+                        <div class="input-val-wrap">
+                            <input type="number" id="roundness" value="0" min="0" max="50" step="1">
+                            <span class="unit-tag">px</span>
+                        </div>
+                        <div class="stepper-actions">
+                            <button type="button" class="step-arrow step-up" tabindex="-1" title="Increase">▲</button>
+                            <button type="button" class="step-arrow step-down" tabindex="-1" title="Decrease">▼</button>
+                        </div>
+                    </div>
+
+                    <!-- 4. Opacity -->
+                    <div class="precision-input-box compact-metric-box" title="Box Opacity (الشفافية)">
+                        <label class="scrub-label" data-target="opacity-input" title="Box Opacity (اسحب للتعديل)">
+                            <!-- Lucide: CircleDot -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20Z"/></svg>
+                        </label>
+                        <div class="input-val-wrap">
+                            <input type="number" id="opacity-input" value="100" min="0" max="100" step="5">
+                            <span class="unit-tag">%</span>
+                        </div>
+                        <div class="stepper-actions">
+                            <button type="button" class="step-arrow step-up" tabindex="-1" title="Increase">▲</button>
+                            <button type="button" class="step-arrow step-down" tabindex="-1" title="Decrease">▼</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scope Switch Row (Single Line Mode) -->
+                <div class="scope-row" id="scope-row" style="display: none;">
+                    <div class="field-item">
+                        <label for="line-index-select">Active Line</label>
+                        <div class="select-wrap">
+                            <select id="line-index-select">
+                                <option value="0">Line 1</option>
+                            </select>
+                            <span class="select-caret">▾</span>
+                        </div>
+                    </div>
+                    <div class="master-override-wrap">
+                        <label class="checkbox-label" title="Override master settings for this line">
+                            <input type="checkbox" id="override-master-check">
+                            <span class="custom-checkbox"></span>
+                            <span>Custom Settings</span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. Motion & Animation Section -->
+            <section class="studio-card">
+                <!-- Hidden inputs to preserve 100% JS backward compatibility -->
+                <input type="checkbox" id="anim-check" checked style="display:none;">
+                <input type="hidden" id="motion-select" value="typewriter">
+                <input type="hidden" id="reveal-unit-select" value="chars">
+
+                <div id="anim-controls" class="anim-controls-wrap">
+                    <!-- Compact Motion Toolbar Row: Motion Type Buttons + Reveal Unit Buttons + Feature Toggles (All in 1 Row) -->
+                    <div class="compact-motion-row">
+                        <!-- 1. Typewriter Motion Modes (Sequential vs Parallel + Speed Mode Toggle) -->
+                        <div class="icon-btn-group" title="Typewriter Motion Suite (نظام الآلة الكاتبة)">
+                            <button type="button" class="square-icon-btn typewriter-mode-btn active" id="btn-typewriter-seq" data-typewriter-mode="sequential" title="Sequential Typewriter (تتابع الأسطر بالتسلسل)">
+                                <!-- Lucide T + Cascading Stepped Arrows -->
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="3" y1="6" x2="11" y2="6"/>
+                                    <line x1="7" y1="6" x2="7" y2="18"/>
+                                    <path d="M13 8h7m-3-3 3 3-3 3"/>
+                                    <path d="M13 16h7m-3-3 3 3-3 3"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="square-icon-btn typewriter-mode-btn" id="btn-typewriter-para" data-typewriter-mode="parallel" title="Parallel Lines Typewriter (بدء كافة الأسطر معاً بالتوازي)">
+                                <!-- Lucide T + Origin Bar with Parallel Concurrent Lines -->
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="3" y1="6" x2="11" y2="6"/>
+                                    <line x1="7" y1="6" x2="7" y2="18"/>
+                                    <line x1="13" y1="6" x2="13" y2="18"/>
+                                    <line x1="13" y1="8" x2="21" y2="8"/>
+                                    <line x1="13" y1="16" x2="21" y2="16"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="square-icon-btn typewriter-speed-btn mode-constant" id="btn-typewriter-speed-toggle" data-speed-mode="constant" title="Constant Word Speed (ثبات سرعة الكلمات - السطور الأقصر تنتهي أولاً)">
+                                <!-- Lucide Gauge for Constant Word Speed -->
+                                <svg class="icon-constant" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="m12 14 4-4"/>
+                                    <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+                                </svg>
+                                <!-- Finish Line Wall with Arrows for Synced Finish (Hidden initially) -->
+                                <svg class="icon-synced" style="display:none;" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="20" y1="4" x2="20" y2="20"/>
+                                    <path d="M4 8h11m-3-3 3 3-3 3"/>
+                                    <path d="M4 16h11m-3-3 3 3-3 3"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="row-divider"></div>
+
+                        <!-- 2. Reveal Unit Group -->
+                        <div class="icon-btn-group" id="field-reveal-unit" title="Reveal Unit (وحدة الظهور)">
+                            <button type="button" class="square-icon-btn reveal-btn active" data-unit="chars" title="Characters (حرف بحرف)">
+                                <!-- Letter A -->
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l2-6h6l2 6h4"/><path d="M11 10l2-6 2 6"/><line x1="8" x2="16" y1="14" y2="14"/></svg>
+                            </button>
+                            <button type="button" class="square-icon-btn reveal-btn" data-unit="words" title="Words (كلمة بكلمة)">
+                                <!-- Word blocks -->
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="8" height="10" rx="1"/><rect x="13" y="7" width="8" height="10" rx="1"/></svg>
+                            </button>
+                            <button type="button" class="square-icon-btn reveal-btn" data-unit="lines" title="Lines (سطر بسطر)">
+                                <!-- Lines -->
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="3" y1="6" y2="6"/><line x1="17" x2="3" y1="12" y2="12"/><line x1="19" x2="3" y1="18" y2="18"/></svg>
+                            </button>
+                        </div>
+
+                        <div class="row-divider"></div>
+
+                        <!-- 3. Feature Options Group (Outro, Markers Sync, Place Markers) -->
+                        <div class="icon-btn-group" title="Playback & Sync Options (خيارات التشغيل والتسلسل)">
+                            <!-- Hidden checkbox for 100% backward compatibility -->
+                            <input type="checkbox" id="sequential-check" checked style="display:none;">
+
+                            <label class="square-icon-btn chip-toggle active" id="chip-outro" data-active="true" title="Outro Exit Animation (حركة خروج عند النهاية)">
+                                <input type="checkbox" id="outro-check" checked>
+                                <!-- Lucide: LogOut -->
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                            </label>
+
+                            <label class="square-icon-btn chip-toggle" id="chip-markers" data-active="false" title="Marker Trigger Sync (مزامنة الماركرز الحية)">
+                                <input type="checkbox" id="marker-sync-check">
+                                <!-- Lucide: Flag -->
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                            </label>
+
+                            <button type="button" class="square-icon-btn" id="btn-place-markers" title="Place / Refresh Timing Markers on Text Layer (وضع ماركرز التوقيت على طبقة النص)">
+                                <!-- Lucide: BookmarkPlus -->
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/><line x1="12" x2="12" y1="7" y2="13"/><line x1="9" x2="15" y1="10" y2="10"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Timing Matrix (2-Row Grid for Markers & In/Out Lifecycle) -->
+                    <div class="timing-matrix-wrap">
+                        <!-- Row 1: Absolute Points on the Timeline (M1 & M3) -->
+                        <div class="timing-matrix-row">
+                            <!-- Field 1: Start Time (M1: وقت بداية التأثير) -->
+                            <div class="precision-input-box timing-matrix-box segmented-box" id="time-in-point-box">
+                                <label class="scrub-label" data-target="time-in-point" title="In Point (M1: وقت بداية التأثير على التايم لاين)">
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="4" y2="20"/><polygon points="8 5 18 12 8 19 8 5" fill="currentColor"/></svg>
+                                </label>
+                                <div class="time-segmented-cluster" data-target="time-in-point">
+                                    <input type="hidden" id="time-in-point" class="time-input timecode-input" value="00:00:00">
+                                    <div class="time-seg-group" title="Minutes (دقائق)">
+                                        <input type="text" class="time-seg-input" data-unit="m" maxlength="2" value="00" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="m" data-dir="up" tabindex="-1" title="+1 Min">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="m" data-dir="down" tabindex="-1" title="-1 Min">▼</button>
+                                        </div>
+                                    </div>
+                                    <span class="time-seg-colon">:</span>
+                                    <div class="time-seg-group" title="Seconds (ثواني)">
+                                        <input type="text" class="time-seg-input" data-unit="s" maxlength="2" value="00" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="s" data-dir="up" tabindex="-1" title="+1 Sec">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="s" data-dir="down" tabindex="-1" title="-1 Sec">▼</button>
+                                        </div>
+                                    </div>
+                                    <span class="time-seg-colon">:</span>
+                                    <div class="time-seg-group" title="Frames (فريمات)">
+                                        <input type="text" class="time-seg-input" data-unit="f" maxlength="2" value="00" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="f" data-dir="up" tabindex="-1" title="+1 Frame">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="f" data-dir="down" tabindex="-1" title="-1 Frame">▼</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Field 2: Outro Start Time (M3: وقت بداية النهاية) -->
+                            <div class="precision-input-box timing-matrix-box segmented-box" id="time-out-point-box">
+                                <label class="scrub-label" data-target="time-out-point" title="Out Point (M3: وقت بداية حركة الخروج على التايم لاين)">
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 5 16 12 6 19 6 5" fill="currentColor"/><line x1="20" y1="4" x2="20" y2="20"/></svg>
+                                </label>
+                                <div class="time-segmented-cluster" data-target="time-out-point">
+                                    <input type="hidden" id="time-out-point" class="time-input timecode-input" value="00:02:15">
+                                    <div class="time-seg-group" title="Minutes (دقائق)">
+                                        <input type="text" class="time-seg-input" data-unit="m" maxlength="2" value="00" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="m" data-dir="up" tabindex="-1" title="+1 Min">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="m" data-dir="down" tabindex="-1" title="-1 Min">▼</button>
+                                        </div>
+                                    </div>
+                                    <span class="time-seg-colon">:</span>
+                                    <div class="time-seg-group" title="Seconds (ثواني)">
+                                        <input type="text" class="time-seg-input" data-unit="s" maxlength="2" value="02" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="s" data-dir="up" tabindex="-1" title="+1 Sec">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="s" data-dir="down" tabindex="-1" title="-1 Sec">▼</button>
+                                        </div>
+                                    </div>
+                                    <span class="time-seg-colon">:</span>
+                                    <div class="time-seg-group" title="Frames (فريمات)">
+                                        <input type="text" class="time-seg-input" data-unit="f" maxlength="2" value="15" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="f" data-dir="up" tabindex="-1" title="+1 Frame">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="f" data-dir="down" tabindex="-1" title="-1 Frame">▼</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Lifespans / Durations (M2-M1 and M4-M3) -->
+                        <div class="timing-matrix-row">
+                            <!-- Field 3: Intro Duration (عمر البداية: M2 - M1) -->
+                            <div class="precision-input-box timing-matrix-box segmented-box" id="line-dur-box">
+                                <label class="scrub-label" data-target="line-dur" title="Intro Duration (عمر البداية: مدة حركة الدخول بين الماركر 1 و 2)">
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
+                                </label>
+                                <div class="time-segmented-cluster" data-target="line-dur">
+                                    <input type="hidden" id="line-dur" class="time-input timecode-input" value="00:00:15">
+                                    <div class="time-seg-group" title="Minutes (دقائق)">
+                                        <input type="text" class="time-seg-input" data-unit="m" maxlength="2" value="00" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="m" data-dir="up" tabindex="-1" title="+1 Min">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="m" data-dir="down" tabindex="-1" title="-1 Min">▼</button>
+                                        </div>
+                                    </div>
+                                    <span class="time-seg-colon">:</span>
+                                    <div class="time-seg-group" title="Seconds (ثواني)">
+                                        <input type="text" class="time-seg-input" data-unit="s" maxlength="2" value="00" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="s" data-dir="up" tabindex="-1" title="+1 Sec">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="s" data-dir="down" tabindex="-1" title="-1 Sec">▼</button>
+                                        </div>
+                                    </div>
+                                    <span class="time-seg-colon">:</span>
+                                    <div class="time-seg-group" title="Frames (فريمات)">
+                                        <input type="text" class="time-seg-input" data-unit="f" maxlength="2" value="15" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="f" data-dir="up" tabindex="-1" title="+1 Frame">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="f" data-dir="down" tabindex="-1" title="-1 Frame">▼</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Field 4: Outro Duration (عمر النهاية: M4 - M3) -->
+                            <div class="precision-input-box timing-matrix-box segmented-box" id="out-time-col">
+                                <label class="scrub-label" data-target="out-time" title="Outro Duration (عمر النهاية: مدة حركة الخروج بين الماركر 3 و 4)">
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
+                                </label>
+                                <div class="time-segmented-cluster" data-target="out-time">
+                                    <input type="hidden" id="out-time" class="time-input timecode-input" value="00:00:10">
+                                    <div class="time-seg-group" title="Minutes (دقائق)">
+                                        <input type="text" class="time-seg-input" data-unit="m" maxlength="2" value="00" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="m" data-dir="up" tabindex="-1" title="+1 Min">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="m" data-dir="down" tabindex="-1" title="-1 Min">▼</button>
+                                        </div>
+                                    </div>
+                                    <span class="time-seg-colon">:</span>
+                                    <div class="time-seg-group" title="Seconds (ثواني)">
+                                        <input type="text" class="time-seg-input" data-unit="s" maxlength="2" value="00" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="s" data-dir="up" tabindex="-1" title="+1 Sec">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="s" data-dir="down" tabindex="-1" title="-1 Sec">▼</button>
+                                        </div>
+                                    </div>
+                                    <span class="time-seg-colon">:</span>
+                                    <div class="time-seg-group" title="Frames (فريمات)">
+                                        <input type="text" class="time-seg-input" data-unit="f" maxlength="2" value="10" autocomplete="off" spellcheck="false">
+                                        <div class="time-seg-arrows">
+                                            <button type="button" class="time-seg-btn seg-up" data-unit="f" data-dir="up" tabindex="-1" title="+1 Frame">▲</button>
+                                            <button type="button" class="time-seg-btn seg-down" data-unit="f" data-dir="down" tabindex="-1" title="-1 Frame">▼</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preserved for backward compatibility with presets / stagger -->
+                        <input type="hidden" id="stagger" value="00:00:00">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. Actions Section -->
+            <section class="actions-card">
+                <div class="action-buttons-row">
+                    <!-- Left: Outro Direction & Sync Cluster (Pure Square Icon Buttons with Enhanced Arrows) -->
+                    <div class="icon-btn-group" id="outro-direction-bar" title="Outro Direction & Sync (ترتيب واتجاه حركة الخروج)">
+                        <button type="button" class="square-icon-btn" id="btn-text-outro-order" data-order="first" title="Text Exit Direction: Forward (→) or Reverse (←)">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7h7M6 7v10"/><path d="M12 12h9.5m-4.5-5 4.5 5-4.5 5"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn active" id="btn-sync-outro-order" data-synced="true" title="Sync Containers to Text (تزامن خروج الحاويات مع النص تلقائياً)">
+                            <!-- Lucide: Link2 -->
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn disabled" id="btn-box-outro-order" data-order="first" title="Container Exit Direction (اتجاه خروج الحاويات الملونة)" disabled>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="7" height="10" rx="1.5"/><path d="M12 12h9.5m-4.5-5 4.5 5-4.5 5"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Right: Main Action Buttons (Live Update, Apply & Clear) -->
+                    <div class="action-main-btns">
+                        <button type="button" id="btn-live-update" class="square-icon-btn active" data-active="true" title="Live Auto-Update (تحديث مباشر تلقائي مع كل تغيير في الواجهة)">
+                            <!-- Lucide: RefreshCw -->
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                        </button>
+                        <button type="button" id="btn-smart-apply" class="square-icon-btn apply-btn" title="Apply Highlight (تطبيق التظليل على النص)">
+                            <!-- Lucide: Zap -->
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        </button>
+                        <button type="button" id="btn-clear" class="square-icon-btn clear-btn danger" title="Clear Highlights (مسح تظليلات الطبقة المحددة)">
+                            <!-- Lucide: Trash2 -->
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ============================================================
+             TAB VIEW 2: PHRASE HIGHLIGHT (Interactive Multi-Selection)
+             ============================================================ -->
+        <div id="view-phrases" class="tab-view" style="display: none;">
+            <!-- Target Status for Phrases -->
+            <section class="studio-card">
+                <div class="target-strip">
+                    <span class="target-indicator-dot"></span>
+                    <span class="target-strip-label">LINKED:</span>
+                    <span id="phrase-target-name" class="target-strip-val">Select Text Layer in AE</span>
+                    <span id="phrase-fps-badge" class="target-fps-badge" title="Active Composition Frame Rate">30 FPS</span>
+                </div>
+            </section>
+
+            <!-- Interactive Words Board Card -->
+            <section class="studio-card">
+                <div class="tokens-board-header">
+                    <div class="tokens-stats-bar">
+                        <!-- Words count badge: FileText icon + Number -->
+                        <div class="token-stat-badge" title="Selected Words (عدد الكلمات)">
+                            <!-- Lucide: FileText -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                            <span id="phrase-count-badge" class="stat-number">0</span>
+                        </div>
+
+                        <!-- Characters count badge: Type icon + Number -->
+                        <div class="token-stat-badge" title="Selected Characters (عدد الأحرف)">
+                            <!-- Lucide: Type -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
+                            <span id="phrase-char-badge" class="stat-number">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Clear selection X icon button -->
+                    <button type="button" id="btn-phrase-clear-sel" class="square-icon-btn danger" title="Clear selection (إلغاء التحديد)">
+                        <!-- Lucide: X -->
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Live Clickable Word Tokens Board -->
+                <div id="tokens-board" class="tokens-board" dir="auto">
+                    <div class="tokens-empty-state">
+                        <span>Select a Text Layer in After Effects to load words</span>
+                    </div>
+                </div>
+
+                <!-- Movable Resizer Handle (فاصل متحرك لتكبير وتصغير حيز النص) -->
+                <div class="tokens-resize-handle" id="tokens-resize-handle" title="Drag to resize height (اسحب لتكبير أو تصغير الحيز)">
+                    <span class="resize-grip"></span>
+                </div>
+
+                <!-- Applied Phrases Tray (Cumulative Multi-Color Highlights) -->
+                <div class="applied-phrases-card" id="applied-phrases-wrap" style="display: none;">
+                    <div class="applied-phrases-header">
+                        <span class="applied-phrases-title">Applied Phrases in AE</span>
+                        <span id="applied-phrases-count" class="applied-count-badge">0</span>
+                    </div>
+                    <div id="applied-phrases-list" class="applied-phrases-list">
+                        <!-- Dynamic badges populated by HS.PhraseManager -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Phrase Appearance & Animation Card -->
+            <section class="studio-card">
+                <!-- Hidden inputs to preserve 100% JS backward compatibility -->
+                <input type="hidden" id="phrase-style-select" value="box">
+                <input type="hidden" id="phrase-motion-select" value="typewriter">
+                <span id="phrase-color-hex" style="display: none;">#2ECC71</span>
+
+                <!-- Compact Phrase Appearance Toolbar Row: Shape Buttons + Animation Buttons + Color Trigger -->
+                <div class="compact-appearance-row">
+                    <!-- 1. Phrase Shape Group -->
+                    <div class="icon-btn-group" title="Phrase Shape (شكل تظليل العبارة)">
+                        <button type="button" class="square-icon-btn phrase-shape-btn active" data-shape="box" title="Box (مستطيل كامل)">
+                            <!-- Lucide: Square -->
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-shape-btn" data-shape="pill" title="Pill (كبسولة دائرية الأطراف)">
+                            <!-- Lucide: RectangleHorizontal (rounded) -->
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="6"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-shape-btn" data-shape="marker" title="Marker (قلم ماركر)">
+                            <!-- Lucide: Highlighter / Marker -->
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h3l6-6"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-shape-btn" data-shape="underline" title="Underline (تسطير أسفل الكلمات)">
+                            <!-- Lucide: Underline -->
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="20" y2="20"/><path d="M6 4v7a6 6 0 0 0 12 0V4"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-shape-btn" data-shape="outline" title="Outline (إطار مفرغ)">
+                            <!-- Lucide: Outline (dashed rect) -->
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="row-divider"></div>
+
+                    <!-- 2. Phrase Animation / Motion Group -->
+                    <div class="icon-btn-group" title="Phrase Animation (نوع حركة تظليل العبارة)">
+                        <button type="button" class="square-icon-btn phrase-motion-btn active" data-motion="typewriter" title="Typewriter Sync (كتابة متزامنة)">
+                            <!-- Lucide: Type / Typewriter -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="wipe" title="Smooth Wipe (مسح تدريجي ناعم)">
+                            <!-- Lucide: Wand2 / Smooth Wipe -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 12 18-9-9 18-2-7-7-2Z"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="pop" title="Scale Pop (ظهور بتكبير مرن)">
+                            <!-- Lucide: Sparkles / Pop -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="snap" title="Snap Jump (قفز فوري)">
+                            <!-- Lucide: Zap -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="row-divider"></div>
+
+                    <!-- 3. Phrase Square Color Picker Button -->
+                    <div class="color-picker-square-wrap" title="Phrase Color (اختر لون العبارة)">
+                        <input type="color" id="phrase-color-input" value="#2ecc71">
+                        <button type="button" class="square-icon-btn color-trigger-btn" id="btn-phrase-color-trigger" title="Phrase Color (اختر لون العبارة)">
+                            <span class="color-dot" id="phrase-color-indicator-dot" style="background-color: #2ecc71;"></span>
+                            <!-- Lucide: Palette -->
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Phrase Color Swatches -->
+                <div class="swatches-bar" id="phrase-swatches">
+                    <button type="button" class="swatch-btn swatch-recent" id="phrase-recent-color-swatch" data-color="#2ecc71" style="background:#2ecc71" title="Last Chosen Color (آخر لون تم اختياره)"></button>
+                    <span class="swatch-divider"></span>
+                    <button type="button" class="swatch-btn active" data-color="#2ecc71" style="background:#2ecc71" title="Emerald Green (أخضر زمردي)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ffd13b" style="background:#ffd13b" title="Amber Yellow (أصفر عنبري)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ff9f1c" style="background:#ff9f1c" title="Sunset Orange (برتقالي دافئ)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ff3b5c" style="background:#ff3b5c" title="Coral Crimson (أحمر مرجاني)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ff6584" style="background:#ff6584" title="Hot Rose (وردي ناصع)"></button>
+                    <button type="button" class="swatch-btn" data-color="#a855f7" style="background:#a855f7" title="Vivid Purple (بنفسجي مشرق)"></button>
+                    <button type="button" class="swatch-btn" data-color="#4f46e5" style="background:#4f46e5" title="Electric Indigo (أزرق نيلي)"></button>
+                    <button type="button" class="swatch-btn" data-color="#00b4d8" style="background:#00b4d8" title="Cyan Teal (سماوي مائي)"></button>
+                    <button type="button" class="swatch-btn" data-color="#a3e635" style="background:#a3e635" title="Lime Highlighter (أخضر ليموني)"></button>
+                    <button type="button" class="swatch-btn" data-color="#ffffff" style="background:#ffffff" title="Pure White (أبيض ناصع)"></button>
+                </div>
+
+                <div class="metrics-grid-2x2">
+                    <div class="precision-input-box compact-metric-box" title="Phrase Horizontal Padding (توسيع أفقي للعبارة)">
+                        <label class="scrub-label" data-target="phrase-pad-x" title="Phrase Horizontal Padding (اسحب للتعديل)">
+                            <!-- Lucide: MoveHorizontal -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/></svg>
+                        </label>
+                        <div class="input-val-wrap">
+                            <input type="number" id="phrase-pad-x" value="10" min="0" max="150" step="1">
+                            <span class="unit-tag">px</span>
+                        </div>
+                        <div class="stepper-actions">
+                            <button type="button" class="step-arrow step-up" tabindex="-1" title="Increase">▲</button>
+                            <button type="button" class="step-arrow step-down" tabindex="-1" title="Decrease">▼</button>
+                        </div>
+                    </div>
+
+                    <div class="precision-input-box compact-metric-box" title="Phrase Vertical Padding (توسيع رأسي للعبارة)">
+                        <label class="scrub-label" data-target="phrase-pad-y" title="Phrase Vertical Padding (اسحب للتعديل)">
+                            <!-- Lucide: MoveVertical -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 18 12 22 16 18"/><polyline points="8 6 12 2 16 6"/><line x1="12" x2="12" y1="2" y2="22"/></svg>
+                        </label>
+                        <div class="input-val-wrap">
+                            <input type="number" id="phrase-pad-y" value="4" min="0" max="100" step="1">
+                            <span class="unit-tag">px</span>
+                        </div>
+                        <div class="stepper-actions">
+                            <button type="button" class="step-arrow step-up" tabindex="-1" title="Increase">▲</button>
+                            <button type="button" class="step-arrow step-down" tabindex="-1" title="Decrease">▼</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phrase Motion Dynamics & Outro Controls (Phase 3) -->
+                <div class="phrase-timing-row">
+                    <div class="icon-btn-group" title="Timing & Sequencing (التوقيت والتسلسل)">
+                        <label class="square-icon-btn chip-toggle" id="chip-phrase-outro" data-active="false" title="Outro Exit Animation (حركة خروج للعبارة)">
+                            <input type="checkbox" id="phrase-outro-check">
+                            <!-- Lucide: LogOut -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        </label>
+                        <label class="square-icon-btn chip-toggle" id="chip-phrase-seq" data-active="false" title="Sequential Phrases (تشغيل العبارات واحدة تلو الأخرى)">
+                            <input type="checkbox" id="phrase-seq-check">
+                            <!-- Lucide: ArrowDown -->
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="4" x2="12" y2="20"/><polyline points="18 14 12 20 6 14"/></svg>
+                        </label>
+                    </div>
+
+                    <div class="precision-input-box disabled" id="phrase-hold-col">
+                        <label class="scrub-label" data-target="phrase-hold-time" title="Duration phrase stays visible before outro">
+                            <!-- Lucide: Hourglass -->
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
+                            <span class="scrub-text">Hold</span>
+                        </label>
+                        <div class="input-val-wrap">
+                            <input type="text" id="phrase-hold-time" class="time-input" value="1:05" disabled spellcheck="false" autocomplete="off">
+                            <button type="button" class="unit-tag unit-toggle-btn" title="Click to cycle time format: s:f ➔ f ➔ s">s:f</button>
+                        </div>
+                        <div class="stepper-actions">
+                            <button type="button" class="step-arrow step-up" tabindex="-1" title="Increase (+1 frame, Shift=+5)">▲</button>
+                            <button type="button" class="step-arrow step-down" tabindex="-1" title="Decrease (-1 frame, Shift=-5)">▼</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Phrase Actions Card -->
+            <section class="actions-card">
+                <div class="action-buttons-row">
+                    <button type="button" id="btn-apply-phrase" class="square-icon-btn apply-btn" title="Apply Phrase Highlight (تطبيق تظليل العبارات في After Effects)">
+                        <!-- Lucide: Sparkles -->
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                    </button>
+                    <button type="button" id="btn-clear-phrase" class="square-icon-btn clear-btn danger" title="Clear Phrase Highlights (مسح تظليل العبارات)">
+                        <!-- Lucide: Trash2 -->
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- Save Preset Modal Dialog (Phase 4) -->
+        <div class="preset-modal-overlay" id="preset-modal" style="display: none;">
+            <div class="preset-modal-content">
+                <div class="preset-modal-header">
+                    <div class="preset-modal-title">
+                        <!-- Lucide: BookmarkPlus -->
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/><line x1="12" x2="12" y1="7" y2="13"/><line x1="9" x2="15" y1="10" y2="10"/></svg>
+                        <span>Save Custom Preset</span>
+                    </div>
+                    <button type="button" class="modal-close-btn" id="btn-close-preset-modal" title="Close">✕</button>
+                </div>
+                <div class="preset-modal-body">
+                    <label class="modal-field-label" for="preset-name-input">Preset Name</label>
+                    <input type="text" id="preset-name-input" class="modal-text-input" placeholder="e.g. My Neon Box" maxlength="20">
+                    <div class="modal-preview-chip">
+                        <span class="modal-preview-color" id="modal-preset-color-preview"></span>
+                        <span class="modal-preview-details" id="modal-preset-details">Box • Pad 10 • Typewriter</span>
+                    </div>
+                </div>
+                <div class="preset-modal-footer">
+                    <button type="button" class="modal-btn secondary" id="btn-cancel-preset">Cancel</button>
+                    <button type="button" class="modal-btn primary" id="btn-confirm-save-preset">Save Preset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Preset Confirmation Modal Dialog -->
+        <div class="preset-modal-overlay" id="delete-preset-modal" style="display: none;">
+            <div class="preset-modal-content">
+                <div class="preset-modal-header">
+                    <div class="preset-modal-title">
+                        <!-- Lucide: Trash2 -->
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        <span>Delete Custom Preset</span>
+                    </div>
+                    <button type="button" class="modal-close-btn" id="btn-close-delete-preset-modal" title="Close">✕</button>
+                </div>
+                <div class="preset-modal-body">
+                    <p id="delete-preset-msg" style="font-size:11px; color:var(--text-bright, #e8e8f2); margin:4px 0 12px 0; line-height:1.5;">Are you sure you want to delete this preset?</p>
+                </div>
+                <div class="preset-modal-footer">
+                    <button type="button" class="modal-btn secondary" id="btn-cancel-delete-preset">Cancel</button>
+                    <button type="button" class="modal-btn primary danger" id="btn-confirm-delete-preset" style="background:#d46a74; color:#fff; border-color:#d46a74;">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Status Bar (Shared across all views) -->
+        <div id="status-bar" class="status-bar">
+            <span class="status-dot"></span>
+            <span id="status-text" title="Current Status">Ready</span>
+        </div>
+
+        <!-- Collapsible Debug Console (Hidden by default for production, toggleable via Ctrl+Shift+D or double-clicking Status Bar) -->
+        <div class="debug-section" id="debug-section" style="display: none;">
+            <button type="button" id="btn-debug" class="debug-toggle">
+                <!-- Lucide: Terminal -->
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+                Debug Console
+            </button>
+            <div id="debug-panel" class="debug-panel" style="display:none;">
+                <pre id="debug-log">No logs yet.</pre>
+                <div class="debug-actions">
+                    <button type="button" id="btn-refresh-log" class="debug-btn">Refresh</button>
+                    <button type="button" id="btn-clear-log" class="debug-btn">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SCRIPTS: MODULAR ARCHITECTURE (Topological Order)
+         ============================================================ -->
+    <!-- 1. Adobe CEP Host Bridge -->
+    <script src="js/CSInterface.js"></script>
+
+    <!-- 2. Core Foundation Layer -->
+    <script src="js/core/Config.js"></script>
+    <script src="js/core/State.js"></script>
+    <script src="js/core/TimeEngine.js"></script>
+    <script src="js/core/DOM.js"></script>
+    <script src="js/core/Bridge.js"></script>
+
+    <!-- 3. Services Layer -->
+    <script src="js/services/SyncService.js"></script>
+    <script src="js/services/Actions.js"></script>
+
+    <!-- 4. Feature Modules Layer -->
+    <script src="js/modules/Controls.js"></script>
+    <script src="js/modules/PresetsManager.js"></script>
+    <script src="js/modules/PhraseManager.js"></script>
+
+    <!-- 5. App Orchestrator & Bootstrapper -->
+    <script src="js/app.js"></script>
+</body>
+</html>

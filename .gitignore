@@ -1,0 +1,28 @@
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+
+# CEP Debug (keep .debug for development reference)
+# .debug
+
+# Logs
+*.log
+
+# Compiled / Packaged
+*.zxp
+*.zip
+build/
+dist/
+
+# Scratch & temporary test scripts
+scratch/

@@ -1,0 +1,23 @@
+{
+  "name": "openbox",
+  "version": "1.0.0",
+  "description": "OpenBox - High-precision kinetic typography and animated text highlighter for Adobe After Effects",
+  "main": "host/hostscript.jsx",
+  "scripts": {
+    "test": "node tests/run_all.js",
+    "test:unit": "node tests/unit/typography_alignment.test.js && node tests/unit/timecode_engine.test.js && node tests/unit/recipe_system.test.js",
+    "test:integration": "node tests/integration/expression_syntax.test.js && node tests/integration/undo_safety.test.js && node tests/integration/syntax_validation.test.js",
+    "validate": "node tests/integration/syntax_validation.test.js"
+  },
+  "keywords": [
+    "after-effects",
+    "motion-graphics",
+    "cep-extension",
+    "typography",
+    "highlighter",
+    "openbox",
+    "extendscript"
+  ],
+  "author": "OpenBox Team",
+  "license": "MIT"
+}

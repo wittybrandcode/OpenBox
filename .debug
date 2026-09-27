@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionList>
+    <Extension Id="com.openbox.ae.panel">
+        <HostList>
+            <!-- After Effects: CEF debug port for Chrome DevTools -->
+            <Host Name="AEFT" Port="8092"/>
+        </HostList>
+    </Extension>
+</ExtensionList>
