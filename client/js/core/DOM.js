@@ -36,6 +36,7 @@
             this.targetFpsBadge = document.getElementById("target-fps-badge");
             this.styleSelect = document.getElementById("style-select");
             this.alignSelect = document.getElementById("align-select");
+            this.btnFullWidth = document.getElementById("btn-full-width");
             this.colorPicker = document.getElementById("color-picker");
             this.colorHex = document.getElementById("color-hex");
             this.recentColorSwatch = document.getElementById("recent-color-swatch");

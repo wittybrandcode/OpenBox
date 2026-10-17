@@ -97,29 +97,41 @@
             HS.DOM.tokensBoard.dir = hasArabic ? "rtl" : "ltr";
             HS.DOM.tokensBoard.classList.toggle("rtl-mode", hasArabic);
 
-            var lines = rawText.split(/\r\n|[\r\n\u0003]/);
-            var lineStartOffset = 0;
+            var wordRegex = /[^\s\u0000-\u001f]+/g;
+            var match;
             var tokenIdx = 0;
+            var lastWordEnd = 0;
+            var curLineIndex = 0;
             var frag = document.createDocumentFragment();
 
-            for (var li = 0; li < lines.length; li++) {
-                var lineText = lines[li];
-                var wordRegex = /\S+/g;
-                var match;
+            while ((match = wordRegex.exec(rawText)) !== null) {
+                var wordStr = match[0];
+                var exactPos = match.index;
+                var exactEnd = exactPos + wordStr.length;
 
-                while ((match = wordRegex.exec(lineText)) !== null) {
-                    var wordStr = match[0];
-                    var exactPos = lineStartOffset + match.index;
-                    var exactEnd = exactPos + wordStr.length;
+                // Check for newline(s) between previous word end and current word start
+                if (lastWordEnd > 0) {
+                    var between = rawText.substring(lastWordEnd, exactPos);
+                    var nlMatches = between.match(/\r\n|[\r\n\u0003]/g);
+                    if (nlMatches && nlMatches.length > 0) {
+                        for (var nli = 0; nli < nlMatches.length; nli++) {
+                            var brEl = document.createElement("div");
+                            brEl.className = "token-line-break";
+                            frag.appendChild(brEl);
+                            curLineIndex++;
+                        }
+                    }
+                }
+                lastWordEnd = exactEnd;
 
-                    var tokenObj = {
-                        index: tokenIdx,
-                        text: wordStr,
-                        charStart: exactPos,
-                        charEnd: exactEnd,
-                        lineIndex: li
-                    };
-                    HS.State.phraseTokens.push(tokenObj);
+                var tokenObj = {
+                    index: tokenIdx,
+                    text: wordStr,
+                    charStart: exactPos,
+                    charEnd: exactEnd,
+                    lineIndex: curLineIndex
+                };
+                HS.State.phraseTokens.push(tokenObj);
 
                     var btn = document.createElement("button");
                     btn.type = "button";
@@ -205,21 +217,6 @@
 
                     frag.appendChild(btn);
                     tokenIdx++;
-                }
-
-                if (li < lines.length - 1) {
-                    var brEl = document.createElement("div");
-                    brEl.className = "token-line-break";
-                    frag.appendChild(brEl);
-
-                    // Advance lineStartOffset: length of line + length of delimiter
-                    lineStartOffset += lineText.length;
-                    if (rawText.substring(lineStartOffset, lineStartOffset + 2) === "\r\n") {
-                        lineStartOffset += 2;
-                    } else if (rawText.charAt(lineStartOffset) === "\r" || rawText.charAt(lineStartOffset) === "\n" || rawText.charAt(lineStartOffset) === "\u0003") {
-                        lineStartOffset += 1;
-                    }
-                }
             }
 
             HS.DOM.tokensBoard.appendChild(frag);

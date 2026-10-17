@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX â€” Controls Module
  * Handles UI input controls: live color, steppers, scrubbing, chips, and outro direction.
  */
@@ -698,6 +698,19 @@
                     if (dir) HS.Controls.setDirection(dir);
                 });
             });
+
+            // Full Width Mode Toggle (Tab 1)
+            if (HS.DOM && HS.DOM.btnFullWidth) {
+                HS.DOM.btnFullWidth.addEventListener("click", function () {
+                    HS.markInteraction();
+                    HS.State.fullWidth = !HS.State.fullWidth;
+                    this.classList.toggle("active", !!HS.State.fullWidth);
+                    HS.setStatus(HS.State.fullWidth ? "Width Mode: Full Block (عرض موحد لكامل الفقرة)" : "Width Mode: Dynamic Fit (عرض متناسب مع كل سطر)");
+                    if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                });
+            }
 
             // Motion Buttons Click Listeners (Tab 1)
             document.querySelectorAll(".motion-btn").forEach(function (btn) {

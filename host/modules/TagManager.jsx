@@ -106,16 +106,19 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
             var lineCOffsets = (ld.cOffsets && ld.cOffsets.length > 0) ? ld.cOffsets.slice(0) : [];
             var lineWOffsets = (ld.wOffsets && ld.wOffsets.length > 0) ? ld.wOffsets.slice(0) : [];
 
-            if (!isCenter) {
+            if (data.fullWidth === true || data.boxWidthMode === "full") {
+                // Full Block Width mode: every box spans 100% full paragraph width
+                boxWidth = scan.fullW;
+                lOff = 0;
+                rOff = 0;
+            } else if (!isCenter) {
                 if (scan.isJustified) {
                     if (scan.isJustifyFullAll || !ld.isLastOfPara) {
-                        // Ø£Ø³Ø·Ø± ÙƒØ§Ù…Ù„Ø© Ø§Ù„Ø¶Ø¨Ø·: Ø§Ù„Ø¹Ø±Ø¶ ÙŠÙ…Ù„Ø£ Ø§Ù„ÙÙ‚Ø±Ø© Ø¨Ø§Ù„ÙƒØ§Ù…Ù„ØŒ ÙˆØ§Ù„Ø¨Ø¯Ø§ÙŠØ© ÙˆØ§Ù„Ù†Ù‡Ø§ÙŠØ© Ø®Ø· Ù…Ø³ØªÙ‚ÙŠÙ…
                         lOff = 0;
                         rOff = 0;
                         boxWidth = scan.fullW;
                     } else if (scan.justifyType === "right" || rtl_k) {
-                        // Ø§Ù„Ø³Ø·Ø± Ø§Ù„Ø£Ø®ÙŠØ± Ù…Ø¶Ø¨ÙˆØ· Ù„Ù„ÙŠÙ…ÙŠÙ†: Ø§Ù„Ø¨Ø¯Ø§ÙŠØ© (Ø§Ù„ÙŠÙ…ÙŠÙ†) Ù…Ø³ØªÙ‚ÙŠÙ…Ø© ÙƒØ§Ù„Ù…Ø³Ø·Ø±Ø©
-                        if (rOff > 0) {
+                        if (rOff > 0 && rOff <= 4.0) {
                             boxWidth = Math.round((boxWidth + rOff) * 10) / 10;
                             if (lineCOffsets.length > 0) {
                                 for (var coR = 0; coR < lineCOffsets.length; coR++) {
@@ -130,10 +133,9 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
                             rOff = 0;
                         }
                     } else if (scan.justifyType === "center") {
-                        // Ø§Ù„Ø³Ø·Ø± Ø§Ù„Ø£Ø®ÙŠØ± Ù…ÙˆØ³Ø·
+                        // center
                     } else {
-                        // Ø§Ù„Ø³Ø·Ø± Ø§Ù„Ø£Ø®ÙŠØ± Ù…Ø¶Ø¨ÙˆØ· Ù„Ù„ÙŠØ³Ø§Ø±: Ø§Ù„Ø¨Ø¯Ø§ÙŠØ© (Ø§Ù„ÙŠØ³Ø§Ø±) Ù…Ø³ØªÙ‚ÙŠÙ…Ø© ÙƒØ§Ù„Ù…Ø³Ø·Ø±Ø©
-                        if (lOff > 0) {
+                        if (lOff > 0 && lOff <= 4.0) {
                             boxWidth = Math.round((boxWidth + lOff) * 10) / 10;
                             if (lineCOffsets.length > 0) {
                                 for (var coL = 0; coL < lineCOffsets.length; coL++) {
@@ -149,8 +151,8 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
                         }
                     }
                 } else if (rtl_k) {
-                    // RTL (Ø¹Ø±Ø¨ÙŠ): Ø¨Ø¯Ø§ÙŠØ© Ø§Ù„Ø£Ø³Ø·Ø± Ù…Ù† Ø¬Ù‡Ø© Ø§Ù„ÙŠÙ…ÙŠÙ†ØŒ ØªØ´ÙƒÙ„ Ø®Ø·Ø§Ù‹ Ø¹Ù…ÙˆØ¯ÙŠØ§Ù‹ Ù…Ø³ØªÙ‚ÙŠÙ…Ø§Ù‹ 100%
-                    if (rOff > 0) {
+                    // RTL (Arabic): only absorb subpixel jitter <= 4px; preserve true line offset if > 4px
+                    if (rOff > 0 && rOff <= 4.0) {
                         boxWidth = Math.round((boxWidth + rOff) * 10) / 10;
                         if (lineCOffsets.length > 0) {
                             for (var coR2 = 0; coR2 < lineCOffsets.length; coR2++) {
@@ -165,8 +167,8 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
                         rOff = 0;
                     }
                 } else {
-                    // LTR (Ù„Ø§ØªÙŠÙ†ÙŠ): Ø¨Ø¯Ø§ÙŠØ© Ø§Ù„Ø£Ø³Ø·Ø± Ù…Ù† Ø¬Ù‡Ø© Ø§Ù„ÙŠØ³Ø§Ø±ØŒ ØªØ´ÙƒÙ„ Ø®Ø·Ø§Ù‹ Ø¹Ù…ÙˆØ¯ÙŠØ§Ù‹ Ù…Ø³ØªÙ‚ÙŠÙ…Ø§Ù‹ 100%
-                    if (lOff > 0) {
+                    // LTR (Latin): only absorb subpixel jitter <= 4px; preserve true line offset if > 4px
+                    if (lOff > 0 && lOff <= 4.0) {
                         boxWidth = Math.round((boxWidth + lOff) * 10) / 10;
                         if (lineCOffsets.length > 0) {
                             for (var coL2 = 0; coL2 < lineCOffsets.length; coL2++) {
@@ -559,15 +561,30 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                 localEnd -= trailWs;
                                 subPhrase = subPhrase.substring(leadWs, subPhrase.length - trailWs);
 
+                                // Ensure tempWord does not wrap to second line during measurements
+                                try {
+                                    var twDoc = tempWord.property("Source Text").value;
+                                    if (twDoc && twDoc.boxText) {
+                                        twDoc.boxTextSize = [100000, 100000];
+                                        tempWord.property("Source Text").setValue(twDoc);
+                                    }
+                                } catch (eTwBox) {}
+
                                 var prefixUpTo = lText.substring(0, localStart + subPhrase.length);
                                 setTempWordText(prefixUpTo);
                                 var rUpTo = tempWord.sourceRectAtTime(comp.time, false);
 
+                                var wOffset = 0;
+                                if (localStart > 0) {
+                                    setTempWordText(lText.substring(0, localStart));
+                                    var rPrefix = tempWord.sourceRectAtTime(comp.time, false);
+                                    wOffset = rPrefix.width;
+                                }
+
                                 setTempWordText(subPhrase);
                                 var rWord = tempWord.sourceRectAtTime(comp.time, false);
 
-                                var wOffset = Math.max(0, rUpTo.width - rWord.width);
-                                var finalW = rWord.width;
+                                var finalW = Math.max(rWord.width, Math.max(0, rUpTo.width - wOffset));
                                 var finalH = Math.max(rWord.height, lineObj.height * 0.9);
 
                                 var wordCOffsets = [];

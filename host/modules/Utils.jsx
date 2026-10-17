@@ -52,11 +52,18 @@ $._smartHighlighter.escapeJSON = function (s) {
     return String(s)
         .replace(/\\/g, "\\\\")
         .replace(/"/g, '\\"')
-        .replace(/\r/g, "\\r")
-        .replace(/\n/g, "\\n")
-        .replace(/\t/g, "\\t")
-        .replace(/[\b]/g, "\\b")
-        .replace(/\f/g, "\\f");
+        .replace(/[\x00-\x1f]/g, function (c) {
+            switch (c) {
+                case '\b': return '\\b';
+                case '\t': return '\\t';
+                case '\n': return '\\n';
+                case '\f': return '\\f';
+                case '\r': return '\\r';
+                default:
+                    var code = c.charCodeAt(0).toString(16);
+                    return '\\u' + ('0000' + code).slice(-4);
+            }
+        });
 };
 
 $._smartHighlighter.stringifyJSON = function (val) {

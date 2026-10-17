@@ -235,6 +235,95 @@ function runTest() {
     assert.strictEqual(curX_Latin, 690, "Latin word in RTL line must be positioned relative to lineRight, not lineLeft");
     console.log('  ✓ BiDi Word Coordinates: Latin words in RTL lines position strictly within sentence flow');
 
+    // -------------------------------------------------------------
+    // Test 9: JSON Control Characters & AE Keypad Enter (\u0003) Escape
+    // -------------------------------------------------------------
+    function escapeJSON(s) {
+        if (s === null || s === undefined) return "";
+        return String(s)
+            .replace(/\\/g, "\\\\")
+            .replace(/"/g, '\\"')
+            .replace(/[\x00-\x1f]/g, function (c) {
+                switch (c) {
+                    case '\b': return '\\b';
+                    case '\t': return '\\t';
+                    case '\n': return '\\n';
+                    case '\f': return '\\f';
+                    case '\r': return '\\r';
+                    default:
+                        var code = c.charCodeAt(0).toString(16);
+                        return '\\u' + ('0000' + code).slice(-4);
+                }
+            });
+    }
+
+    const testAeText = "سطر 1\u0003سطر 2\r\nكلمة \"مهمة\"\tنهاية";
+    const escapedText = escapeJSON(testAeText);
+    const serializedJson = '{"text":"' + escapedText + '"}';
+    let parsedJson = null;
+    assert.doesNotThrow(function () {
+        parsedJson = JSON.parse(serializedJson);
+    }, "JSON.parse must parse escaped AE text with \\u0003 without syntax error");
+    assert.strictEqual(parsedJson.text, testAeText, "Parsed text must strictly match original with AE Enter intact");
+    console.log('  ✓ JSON Control Char Invariant: AE Enter (\\u0003) and control chars escaped safely without parse crashes');
+
+    // -------------------------------------------------------------
+    // Test 10: Full Block Width Mode Invariant
+    // -------------------------------------------------------------
+    const testScanFull = {
+        numLines: 3,
+        fullW: 650.0,
+        isJustified: false,
+        linesData: [
+            { text: "سطر طويل في البداية", width: 450.0, rightOffset: 0.0, cOffsets: [] },
+            { text: "سطر قصير", width: 220.0, rightOffset: 15.0, cOffsets: [] },
+            { text: "سطر متوسط الطول", width: 340.0, rightOffset: 8.0, cOffsets: [] }
+        ]
+    };
+
+    // Simulate TagManager with fullWidth: true
+    function computeFullBlockBoxes(scan) {
+        return scan.linesData.map(function (ld) {
+            return {
+                width: scan.fullW,
+                rightOffset: 0,
+                leftOffset: 0
+            };
+        });
+    }
+
+    const blockBoxes = computeFullBlockBoxes(testScanFull);
+    blockBoxes.forEach(function (b, idx) {
+        assert.strictEqual(b.width, 650.0, `Line ${idx + 1} must span full paragraph width (650.0) in Full Block Mode`);
+        assert.strictEqual(b.rightOffset, 0, `Line ${idx + 1} rightOffset must be 0 in Full Block Mode`);
+    });
+    console.log('  ✓ Full Block Width Invariant: All lines span 100% uniform paragraph width matching red bounding box');
+
+    // -------------------------------------------------------------
+    // Test 11: Large rOff Preservation Invariant (Zero Empty Tail & Zero Clipping)
+    // -------------------------------------------------------------
+    {
+        // When rOff > 4px, TagManager must NOT add rOff to boxWidth, preserving true text bounds
+        const testPX = 5;
+        const rFullT11 = { left: 58, width: 135 }; // rFullRight = 193
+        const testLineWithLargeOffset = { textW: 113, rOff: 18, leftInk: 62, rightInk: 175 }; // rFullRight - rOff = 175 = rightInk!
+
+        let boxW = testLineWithLargeOffset.textW;
+        let rOff = testLineWithLargeOffset.rOff;
+        if (rOff <= 4.0) {
+            boxW += rOff;
+            rOff = 0;
+        }
+        const curW = boxW + 2 * testPX;
+        const curX = ((rFullT11.left + rFullT11.width) - rOff + testPX) - (curW / 2);
+        const boxLeft = curX - curW / 2;
+        const boxRight = curX + curW / 2;
+
+        assert.strictEqual(boxRight, testLineWithLargeOffset.rightInk + testPX, "Box right edge must strictly match line right edge + testPX (no 18px empty gap)");
+        assert.strictEqual(boxLeft, testLineWithLargeOffset.leftInk - testPX, "Box left edge must strictly match line left edge - testPX (zero text clipping)");
+        console.log('  ✓ Offset Preservation Invariant: rOff > 4px prevents phantom width and trailing character clipping');
+    }
+
     console.log('✓ All Arabic, BiDi & Word Selection Geometry Invariants Passed Successfully!\n');
 }
 

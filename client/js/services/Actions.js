@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX â€” Actions & Dispatcher Module
  * Assembles parameter payloads and executes Smart Highlight and Phrase Highlight actions.
  */
@@ -21,6 +21,7 @@
                 direction: (HS.DOM && HS.DOM.alignSelect) ? HS.DOM.alignSelect.value : "auto",
                 mode: "lines",
                 style: (HS.DOM && HS.DOM.styleSelect) ? HS.DOM.styleSelect.value : "box",
+                fullWidth: !!(HS.State && HS.State.fullWidth),
                 motion: currentMotion,
                 typewriterMode: currentTypewriterMode,
                 typewriterSpeedMode: currentTypewriterSpeedMode,
