@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX - Host Engine
  * Module: HighlightBuilder.jsx
  * Version: 2.0.0 (Modular Architecture)
@@ -352,18 +352,7 @@ $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBox
             xform.property("ADBE Anchor Point").expression = "hasParent ? parent.transform.anchorPoint : value;";
             xform.property("ADBE Scale").setValue([100, 100]);
 
-            var opacityCond = (motionRecipe && motionRecipe.getOpacityCondition)
-                ? motionRecipe.getOpacityCondition(ctx)
-                : ((motion === "typewriter" && revealUnit === "lines") ? '(prog < 50) ? 0 : baseOp;' : '(prog <= 0) ? 0 : baseOp;');
-
-            xform.property("ADBE Opacity").expression = 
-                'var pLayer = hasParent ? parent : null;\n' +
-                'var useM = effect("Use Master Controls")(1);\n' +
-                'var mOp = pLayer ? pLayer.effect("Master Highlight Opacity")(1) : 100;\n' +
-                'var lOp = effect("Local Opacity")(1);\n' +
-                'var baseOp = (useM == 1) ? mOp : lOp;\n' +
-                'var prog = effect("Progress")(1);\n' +
-                opacityCond;
+            // Opacity expression will be assigned after effect controls are created
 
             // Visual setup: blending mode & rotation (delegated to style recipe)
             if (styleRecipe && styleRecipe.setupLayer) {
@@ -407,6 +396,20 @@ $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBox
             opacFx.property(1).setValue((isLocalCustom && prevSnap.opacity !== null && prevSnap.opacity !== undefined) ? prevSnap.opacity : initOpacity);
 
             var progFx = fx.addProperty("ADBE Slider Control"); progFx.name = "Progress";
+            progFx.property(1).setValue(100);
+
+            var opacityCond = (motionRecipe && motionRecipe.getOpacityCondition)
+                ? motionRecipe.getOpacityCondition(ctx)
+                : ((motion === "typewriter" && revealUnit === "lines") ? '(prog < 50) ? 0 : baseOp;' : '(prog <= 0) ? 0 : baseOp;');
+
+            xform.property("ADBE Opacity").expression = 
+                'var pLayer = hasParent ? parent : null;\n' +
+                'var useM = 1; try { useM = effect("Use Master Controls")(1); } catch (eM) {}\n' +
+                'var mOp = 100; try { mOp = (pLayer && pLayer.effect("Master Highlight Opacity")) ? pLayer.effect("Master Highlight Opacity")(1) : 100; } catch (eMOp) {}\n' +
+                'var lOp = 100; try { lOp = effect("Local Opacity")(1); } catch (eLOp) {}\n' +
+                'var baseOp = (useM == 1) ? mOp : lOp;\n' +
+                'var prog = 100; try { prog = effect("Progress")(1); } catch (eP) {}\n' +
+                opacityCond;
 
             // Scale transform expression (delegated to motion recipe)
             if (motionRecipe && motionRecipe.applyTransformScale) {

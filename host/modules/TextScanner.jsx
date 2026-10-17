@@ -60,46 +60,74 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
         var refLineH = Math.max(sampleR.height, fontSize * 1.15);
         if (refLineH <= 0) refLineH = Math.max(fontSize, 24);
 
-        var wrapThreshold = refLineH * 0.55;
+        // فحص ما إذا كانت طبقة النص Paragraph (Area) Text أو Point Text
+        var isBoxText = false;
+        var boxSize = null;
+        try {
+            isBoxText = !!textDoc.boxText;
+            boxSize = textDoc.boxTextSize;
+        } catch (eBox) {
+            isBoxText = false;
+        }
 
         var rawParagraphs = fullText.split(/\r\n|[\r\n\u0003]/);
         var visualLines = [];
 
-        for (var p = 0; p < rawParagraphs.length; p++) {
-            var para = rawParagraphs[p];
-            if (para.replace(/\s/g, "").length === 0) continue;
-
-            var words = para.match(/\S+|\s+/g) || [];
-            if (words.length === 0) continue;
-
-            var curLine = "";
-            setTempText(words[0]);
-            var prevH = temp.sourceRectAtTime(comp.time, false).height;
-
-            for (var w = 0; w < words.length; w++) {
-                var token = words[w];
-                var testStr = curLine + token;
-                setTempText(testStr);
-                var r = temp.sourceRectAtTime(comp.time, false);
-
-                if (r.height > prevH + wrapThreshold && curLine.replace(/\s/g, "").length > 0) {
-                    visualLines.push({
-                        text: curLine.replace(/\s+$/, ""),
-                        isLastOfPara: false
-                    });
-                    curLine = token.replace(/^\s+/, "");
-                    setTempText(curLine);
-                    prevH = temp.sourceRectAtTime(comp.time, false).height;
-                } else {
-                    curLine = testStr;
-                    prevH = r.height;
-                }
-            }
-            if (curLine.replace(/\s/g, "").length > 0) {
+        if (!isBoxText) {
+            // Point Text: لا يلتف أوتوماتيكياً في After Effects نهائياً
+            // كل سطر مفصول بـ Enter يمثل سطراً بصرياً واحداً بدقة 100% دون تقطيع زائف
+            for (var p = 0; p < rawParagraphs.length; p++) {
+                var pText = rawParagraphs[p];
+                if (pText.replace(/\s/g, "").length === 0) continue;
                 visualLines.push({
-                    text: curLine.replace(/\s+$/, ""),
+                    text: pText.replace(/\s+$/, ""),
                     isLastOfPara: true
                 });
+            }
+        } else {
+            // Area (Box) Text: يلتف عند تجاوز عرض الصندوق boxTextSize
+            // فحص الالتفاف بمقارنة قفزة الارتفاع لسطرين كاملين (1.6 * refLineH) أو تجاوز عرض الصندوق
+            for (var p = 0; p < rawParagraphs.length; p++) {
+                var para = rawParagraphs[p];
+                if (para.replace(/\s/g, "").length === 0) continue;
+
+                var words = para.match(/\S+|\s+/g) || [];
+                if (words.length === 0) continue;
+
+                var curLine = "";
+
+                for (var w = 0; w < words.length; w++) {
+                    var token = words[w];
+                    var testStr = curLine ? (curLine + token) : token;
+                    setTempText(testStr);
+                    var r = temp.sourceRectAtTime(comp.time, false);
+
+                    // يلتف النص في After Effects عندما ينشئ سطراً ثانياً فيتضاعف الارتفاع إلى سطرين كاملين
+                    var wrapsToNextLine = (curLine.replace(/\s/g, "").length > 0) && (r.height > refLineH * 1.6);
+
+                    // فحص عرض صندوق النص إن وجد
+                    if (!wrapsToNextLine && boxSize && boxSize[0] > 10 && curLine.replace(/\s/g, "").length > 0) {
+                        if (r.width > boxSize[0] + 5) {
+                            wrapsToNextLine = true;
+                        }
+                    }
+
+                    if (wrapsToNextLine) {
+                        visualLines.push({
+                            text: curLine.replace(/\s+$/, ""),
+                            isLastOfPara: false
+                        });
+                        curLine = token.replace(/^\s+/, "");
+                    } else {
+                        curLine = testStr;
+                    }
+                }
+                if (curLine.replace(/\s/g, "").length > 0) {
+                    visualLines.push({
+                        text: curLine.replace(/\s+$/, ""),
+                        isLastOfPara: true
+                    });
+                }
             }
         }
 

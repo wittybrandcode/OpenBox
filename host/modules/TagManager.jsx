@@ -327,6 +327,7 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
                         centerOffset: (typeof lineObj.centerOffset === "number") ? lineObj.centerOffset : 0,
                         lineWidth: lineObj.width,
                         rtl_k: rtl_line,
+                        line_rtl: rtl_line,
                         name: textLayer.name + " - [Word " + (boxesData.length + 1) + ": " + item.phrase + "]",
                         cOffsets: wordCOffsets
                     });
@@ -610,6 +611,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                     centerOffset: (typeof lineObj.centerOffset === "number") ? lineObj.centerOffset : 0,
                                     lineWidth: lineObj.width,
                                     rtl_k: box_rtl,
+                                    line_rtl: rtl_line,
                                     name: '[HL-Phrase] "' + (subPhrase.length > 18 ? subPhrase.substring(0, 16) + '...' : subPhrase) + '"',
                                     cOffsets: wordCOffsets,
                                     color: phr.color || data.color,
@@ -698,27 +700,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             var boxDelay = (isSequential && totalBoxes > 1) ? (k * 0.22) : 0;
             var outDur = 0.26;
 
-            if (box.motion === "typewriter" && hasOutro) {
-                var bCStartPct = (box.charStart / totalTextChars) * 100;
-                var bCEndPct = (box.charEnd / totalTextChars) * 100;
-                var bStartT = typeStartTime + (bCStartPct / 100) * typeTotalDur;
-                var bEndT = typeStartTime + (bCEndPct / 100) * typeTotalDur;
-                var tExitTime = bEndT + holdTime;
-                xform.property("ADBE Opacity").expression =
-                    'var prog = effect("Progress")(1);\n' +
-                    'var baseOpac = (prog <= 0) ? 0 : effect("Local Opacity")(1);\n' +
-                    'var tExit = ' + tExitTime.toFixed(3) + ';\n' +
-                    'var dExit = ' + outDur.toFixed(3) + ';\n' +
-                    'if (time > tExit) {\n' +
-                    '    ease(time, tExit, tExit + dExit, baseOpac, 0);\n' +
-                    '} else {\n' +
-                    '    baseOpac;\n' +
-                    '}';
-            } else {
-                xform.property("ADBE Opacity").expression =
-                    'var prog = effect("Progress")(1);\n' +
-                    '(prog <= 0) ? 0 : effect("Local Opacity")(1);';
-            }
+            // Opacity expression will be assigned after effect controls are created
 
             var boxMotion = box.motion || globalMotion;
             var styleRecipe = $._smartHighlighter.recipes.getStyle(box.style || data.style || "box");
@@ -789,6 +771,31 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             opacFx.property(1).setValue(100);
 
             var progFx = fx.addProperty("ADBE Slider Control"); progFx.name = "Progress";
+            progFx.property(1).setValue(100);
+
+            if (box.motion === "typewriter" && hasOutro) {
+                var bCStartPct = (box.charStart / totalTextChars) * 100;
+                var bCEndPct = (box.charEnd / totalTextChars) * 100;
+                var bStartT = typeStartTime + (bCStartPct / 100) * typeTotalDur;
+                var bEndT = typeStartTime + (bCEndPct / 100) * typeTotalDur;
+                var tExitTime = bEndT + holdTime;
+                xform.property("ADBE Opacity").expression =
+                    'var prog = 100; try { prog = effect("Progress")(1); } catch(eP) {}\n' +
+                    'var lOp = 100; try { lOp = effect("Local Opacity")(1); } catch(eL) {}\n' +
+                    'var baseOpac = (prog <= 0) ? 0 : lOp;\n' +
+                    'var tExit = ' + tExitTime.toFixed(3) + ';\n' +
+                    'var dExit = ' + outDur.toFixed(3) + ';\n' +
+                    'if (time > tExit) {\n' +
+                    '    ease(time, tExit, tExit + dExit, baseOpac, 0);\n' +
+                    '} else {\n' +
+                    '    baseOpac;\n' +
+                    '}';
+            } else {
+                xform.property("ADBE Opacity").expression =
+                    'var prog = 100; try { prog = effect("Progress")(1); } catch(eP) {}\n' +
+                    'var lOp = 100; try { lOp = effect("Local Opacity")(1); } catch(eL) {}\n' +
+                    '(prog <= 0) ? 0 : lOp;';
+            }
 
             // Motion & Timing
             if (boxMotion === "typewriter") {
@@ -844,7 +851,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                 }
 
                 var popExpr =
-                    'var p = effect("Progress")(1);\n' +
+                    'var p = 100; try { p = effect("Progress")(1); } catch(eP) {}\n' +
                     'var outVal = [100, 100];\n' +
                     'if (p.numKeys >= 2) {\n' +
                     '    var k1 = p.key(1);\n' +

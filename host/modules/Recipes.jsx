@@ -254,7 +254,7 @@ $._smartHighlighter.recipes.registerMotion("pop", {
 
     applyTransformScale: function (scaleProp, ctx) {
         var scaleExpr = 
-            'var p = effect("Progress")(1);\n' +
+            'var p = 100; try { p = effect("Progress")(1); } catch(eP) {}\n' +
             'var outVal = [100, 100];\n' +
             'if (p.numKeys >= 2) {\n' +
             '    var k1 = p.key(1);\n' +
@@ -369,11 +369,11 @@ var getStandardPositionSnippet = function (ctx) {
         '    var curFS = baseFS;\n' +
         '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (r.height / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
         '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n' +
-        '    var p = clamp(effect("Progress")(1) / 100, 0, 1);\n' +
+        '    var p = 1; try { p = clamp(effect("Progress")(1) / 100, 0, 1); } catch(eP) {}\n' +
         '    var isOutro = false;\n' +
         '    try {\n' +
-        '        var pProg = effect("Progress")(1);\n' +
-        '        if (pProg.velocity < -0.001) {\n' +
+        '        var pProg = null; try { pProg = effect("Progress")(1); } catch(ePP) {}\n' +
+        '        if (pProg && pProg.velocity < -0.001) {\n' +
         '            isOutro = true;\n' +
         '        } else if (pProg.numKeys >= 4 && time >= pProg.key(3).time) {\n' +
         '            isOutro = true;\n' +
@@ -409,13 +409,25 @@ var getStandardPositionSnippet = function (ctx) {
     posSnippet += ctx.motion.getWidthSnippet(ctx) + '\n';
 
     if (box.isWord) {
-        if (box.rtl_k) {
+        var isLineRTL = (typeof box.line_rtl === "boolean") ? box.line_rtl : box.rtl_k;
+        if (isLineRTL) {
             posSnippet += 
                 '    var rOff = ' + (box.rightOffset ? box.rightOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
                 '    var lineRight = (r.left + r.width) - rOff;\n' +
-                '    var rightEdge = lineRight - (' + box.wordOffset.toFixed(2) + ' * fontRatio);\n' +
-                '    curX = (rightEdge + pX - (startOffset * fontRatio)) - (curW / 2);\n' +
-                '    [curX, curY + offY];\n';
+                '    var rightEdge = lineRight - (' + box.wordOffset.toFixed(2) + ' * fontRatio);\n';
+            if (box.rtl_k) {
+                // Arabic word in RTL line: wipes RTL
+                posSnippet +=
+                    '    curX = (rightEdge + pX - (startOffset * fontRatio)) - (curW / 2);\n' +
+                    '    [curX, curY + offY];\n';
+            } else {
+                // Latin word inside RTL line: positioned within RTL flow, wipes LTR
+                posSnippet +=
+                    '    var wordBaseW = ' + box.width.toFixed(2) + ' * fontRatio;\n' +
+                    '    var leftEdge = rightEdge - wordBaseW;\n' +
+                    '    curX = (leftEdge - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
+                    '    [curX, curY + offY];\n';
+            }
         } else if (isCenter) {
             posSnippet += 
                 '    var cOff = ' + (box.centerOffset ? box.centerOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
@@ -475,11 +487,11 @@ var getStandardSizeSnippet = function (ctx) {
         '    var curFS = baseFS;\n' +
         '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (r.height / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
         '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n\n' +
-        '    var p = clamp(effect("Progress")(1) / 100, 0, 1);\n' +
+        '    var p = 1; try { p = clamp(effect("Progress")(1) / 100, 0, 1); } catch(eP) {}\n' +
         '    var isOutro = false;\n' +
         '    try {\n' +
-        '        var pProg = effect("Progress")(1);\n' +
-        '        if (pProg.velocity < -0.001) {\n' +
+        '        var pProg = null; try { pProg = effect("Progress")(1); } catch(ePP) {}\n' +
+        '        if (pProg && pProg.velocity < -0.001) {\n' +
         '            isOutro = true;\n' +
         '        } else if (pProg.numKeys >= 4 && time >= pProg.key(3).time) {\n' +
         '            isOutro = true;\n' +
