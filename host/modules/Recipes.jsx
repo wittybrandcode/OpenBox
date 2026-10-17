@@ -411,17 +411,22 @@ var getStandardPositionSnippet = function (ctx) {
     if (box.isWord) {
         if (box.rtl_k) {
             posSnippet += 
-                '    var rightEdge = (r.left + r.width) - (' + box.wordOffset.toFixed(2) + ' * fontRatio);\n' +
+                '    var rOff = ' + (box.rightOffset ? box.rightOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
+                '    var lineRight = (r.left + r.width) - rOff;\n' +
+                '    var rightEdge = lineRight - (' + box.wordOffset.toFixed(2) + ' * fontRatio);\n' +
                 '    curX = (rightEdge + pX - (startOffset * fontRatio)) - (curW / 2);\n' +
                 '    [curX, curY + offY];\n';
         } else if (isCenter) {
             posSnippet += 
-                '    var lineLeft = r.left + (r.width / 2) - (' + (box.lineWidth / 2).toFixed(2) + ' * fontRatio);\n' +
+                '    var cOff = ' + (box.centerOffset ? box.centerOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
+                '    var lineLeft = r.left + (r.width / 2) + cOff - (' + (box.lineWidth / 2).toFixed(2) + ' * fontRatio);\n' +
                 '    curX = (lineLeft + (' + box.wordOffset.toFixed(2) + ' * fontRatio) - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
                 '    [curX, curY + offY];\n';
         } else {
             posSnippet += 
-                '    curX = (r.left + (' + box.wordOffset.toFixed(2) + ' * fontRatio) - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
+                '    var lOff = ' + (box.leftOffset ? box.leftOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
+                '    var lineLeft = r.left + lOff;\n' +
+                '    curX = (lineLeft + (' + box.wordOffset.toFixed(2) + ' * fontRatio) - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
                 '    [curX, curY + offY];\n';
         }
     } else {

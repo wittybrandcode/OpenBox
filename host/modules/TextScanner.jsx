@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX - Host Engine
  * Module: TextScanner.jsx
  * Version: 2.0.0 (Modular Architecture)
@@ -55,7 +55,7 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
         };
 
         // Ù‚ÙŠØ§Ø³ Ø§Ù„Ø§Ø±ØªÙØ§Ø¹ Ø§Ù„Ù…Ø±Ø¬Ø¹ÙŠ Ù„Ù„Ø³Ø·Ø± Ø¨Ø¹ÙŠÙ†Ø© Ù‚ÙŠØ§Ø³ÙŠØ© Ø´Ø§Ù…Ù„Ø© (Ø£Ø­Ø±Ù Ø¹Ù„ÙˆÙŠØ© ÙˆØ³ÙÙ„ÙŠØ© ÙˆØ¹Ø±Ø¨ÙŠØ© ÙˆØ£Ø±Ù‚Ø§Ù…)
-        setTempText("AgÃ‰ÙŠÙ€1");
+        setTempText("\u0041\u0067\u00C9\u064A\u0640\u0031"); // "AgÉيـ1"
         var sampleR = temp.sourceRectAtTime(comp.time, false);
         var refLineH = Math.max(sampleR.height, fontSize * 1.15);
         if (refLineH <= 0) refLineH = Math.max(fontSize, 24);

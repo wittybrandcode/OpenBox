@@ -2020,6 +2020,16 @@ label {
     box-sizing: border-box;
 }
 
+.tokens-board.rtl-mode {
+    direction: rtl;
+    text-align: right;
+}
+
+.tokens-board.rtl-mode .word-token {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Arial, sans-serif;
+    letter-spacing: 0;
+}
+
 /* Custom Sleek Scrollbar */
 .tokens-board::-webkit-scrollbar,
 .applied-phrases-list::-webkit-scrollbar {

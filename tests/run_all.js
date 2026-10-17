@@ -19,6 +19,7 @@ console.log('══════════════════════�
 
 const suites = [
     { name: 'Typography & Line Alignment', path: './unit/typography_alignment.test.js' },
+    { name: 'Arabic, BiDi & Word Geometry', path: './unit/arabic_bidi_geometry.test.js' },
     { name: 'Timecode Engine & Segmented Inputs', path: './unit/timecode_engine.test.js' },
     { name: 'Recipe Plugin Architecture', path: './unit/recipe_system.test.js' },
     { name: 'Expression Safety & Evaluation', path: './integration/expression_syntax.test.js' },

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX â€” Phrase Manager Module
  * Interactive word tokens board, multi-selection, strict positional matching, and instant eraser.
  */
@@ -93,7 +93,11 @@
             if (!HS.DOM || !HS.DOM.tokensBoard) return;
             HS.DOM.tokensBoard.innerHTML = "";
 
-            var lines = rawText.split(/\r\n|\r|\n/);
+            var hasArabic = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(rawText);
+            HS.DOM.tokensBoard.dir = hasArabic ? "rtl" : "ltr";
+            HS.DOM.tokensBoard.classList.toggle("rtl-mode", hasArabic);
+
+            var lines = rawText.split(/\r\n|[\r\n\u0003]/);
             var lineStartOffset = 0;
             var tokenIdx = 0;
             var frag = document.createDocumentFragment();
@@ -212,7 +216,7 @@
                     lineStartOffset += lineText.length;
                     if (rawText.substring(lineStartOffset, lineStartOffset + 2) === "\r\n") {
                         lineStartOffset += 2;
-                    } else if (rawText.charAt(lineStartOffset) === "\r" || rawText.charAt(lineStartOffset) === "\n") {
+                    } else if (rawText.charAt(lineStartOffset) === "\r" || rawText.charAt(lineStartOffset) === "\n" || rawText.charAt(lineStartOffset) === "\u0003") {
                         lineStartOffset += 1;
                     }
                 }
@@ -318,6 +322,9 @@
                             matchedPhrase = ap;
                             break;
                         }
+                    } else if (ap.text && tokenObj.text === ap.text && applied.length === 1) {
+                        matchedPhrase = ap;
+                        break;
                     }
                 }
 

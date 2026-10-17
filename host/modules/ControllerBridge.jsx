@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX - Host Engine
  * Module: ControllerBridge.jsx
  * Version: 2.0.0 (Modular Architecture)
@@ -271,7 +271,10 @@ $._smartHighlighter.getLayerState = function (fetchText) {
             var rndFx = lyr.effect("Master Roundness");
             var txtContent = "";
             if (fetchText === true && !isTextToolActive) {
-                try { txtContent = lyr.property("Source Text").value.text; } catch (eTxt) {}
+                try {
+                    txtContent = lyr.property("Source Text").value.text;
+                    if ($._smartHighlighter.stripAnchors) txtContent = $._smartHighlighter.stripAnchors(txtContent);
+                } catch (eTxt) {}
             }
             var safeTxt = $._smartHighlighter.escMeta(txtContent);
 
@@ -314,7 +317,12 @@ $._smartHighlighter.getLayerState = function (fetchText) {
             var curOp = (isLocal && locOpFx) ? locOpFx.property(1).value : (parentMOp ? parentMOp.property(1).value : 100);
             var parentTxt = "";
             if (fetchText === true && !isTextToolActive) {
-                try { if (lyr.parent instanceof TextLayer) parentTxt = lyr.parent.property("Source Text").value.text; } catch (ePTxt) {}
+                try {
+                    if (lyr.parent instanceof TextLayer) {
+                        parentTxt = lyr.parent.property("Source Text").value.text;
+                        if ($._smartHighlighter.stripAnchors) parentTxt = $._smartHighlighter.stripAnchors(parentTxt);
+                    }
+                } catch (ePTxt) {}
             }
             var safePTxt = $._smartHighlighter.escMeta(parentTxt);
 

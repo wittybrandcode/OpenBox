@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX - Host Engine
  * Module: TagManager.jsx
  * Version: 2.0.0 (Modular Architecture)
@@ -371,6 +371,9 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
                 totalChars: scan.fullText.length,
                 isWord: false,
                 wordOffset: 0,
+                rightOffset: (typeof ld2.rightOffset === "number") ? ld2.rightOffset : 0,
+                leftOffset: (typeof ld2.leftOffset === "number") ? ld2.leftOffset : 0,
+                centerOffset: (typeof ld2.centerOffset === "number") ? ld2.centerOffset : 0,
                 lineWidth: ld2.width,
                 rtl_k: rtl_k2,
                 name: textLayer.name + " - [Line " + (k2 + 1) + "]",
@@ -583,6 +586,8 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                 }
 
                                 var rtl_line = isCenter ? false : ((data.direction === "auto" || !data.direction) ? (scan.isJustified ? (scan.justifyType === "right") : $._smartHighlighter.lineIsRTL(lText, fallbackRTL)) : (data.direction === "rtl"));
+                                var wordHasArabic = $._smartHighlighter.hasArabic(subPhrase);
+                                var box_rtl = isCenter ? false : ((data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (wordHasArabic ? true : (/[A-Za-z]/.test(subPhrase) ? false : rtl_line))));
 
                                 boxesData.push({
                                     boxIndex: boxesData.length,
@@ -600,8 +605,11 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                     totalChars: scan.fullText.length,
                                     isWord: true,
                                     wordOffset: wOffset,
+                                    rightOffset: (typeof lineObj.rightOffset === "number") ? lineObj.rightOffset : 0,
+                                    leftOffset: (typeof lineObj.leftOffset === "number") ? lineObj.leftOffset : 0,
+                                    centerOffset: (typeof lineObj.centerOffset === "number") ? lineObj.centerOffset : 0,
                                     lineWidth: lineObj.width,
-                                    rtl_k: rtl_line,
+                                    rtl_k: box_rtl,
                                     name: '[HL-Phrase] "' + (subPhrase.length > 18 ? subPhrase.substring(0, 16) + '...' : subPhrase) + '"',
                                     cOffsets: wordCOffsets,
                                     color: phr.color || data.color,
@@ -671,8 +679,9 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             var box = boxesData[k];
             var shapeLayer = comp.layers.addShape();
             var phraseTag = "SMART_HL_PHRASE";
-            shapeLayer.name = box.name;
-            shapeLayer.comment = phraseTag + "|id:" + box.phraseId + "|parent:" + textLayer.name + "|color:" + box.phraseColorHex + "|text:" + encodeURIComponent(box.phraseText) + "|cs:" + box.charStart + "|ce:" + box.charEnd;
+            var safePhrText = "";
+            try { safePhrText = escape(box.phraseText); } catch(eEsc) { safePhrText = encodeURIComponent(box.phraseText); }
+            shapeLayer.comment = phraseTag + "|id:" + box.phraseId + "|parent:" + textLayer.name + "|color:" + box.phraseColorHex + "|text:" + safePhrText + "|cs:" + box.charStart + "|ce:" + box.charEnd;
 
             shapeLayer.moveAfter(lastLayer);
             lastLayer = shapeLayer;
@@ -1128,9 +1137,13 @@ $._smartHighlighter.getAppliedPhrases = function (targetLayerName) {
                 var pText = "";
                 if (textMatch) {
                     try {
-                        pText = decodeURIComponent(textMatch[1]);
-                    } catch (eDec) {
-                        pText = textMatch[1];
+                        pText = unescape(textMatch[1]);
+                    } catch (eDec1) {
+                        try {
+                            pText = decodeURIComponent(textMatch[1]);
+                        } catch (eDec2) {
+                            pText = textMatch[1];
+                        }
                     }
                 }
                 if (!pText || pText.length === 0) {

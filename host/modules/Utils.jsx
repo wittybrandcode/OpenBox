@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX - Host Engine
  * Module: Utils.jsx
  * Version: 2.0.0 (Modular Architecture)
@@ -123,9 +123,11 @@ $._smartHighlighter.detectJustification = function (justification) {
                 return "rtl";
             }
             if (justification === ParagraphJustification.LEFT_JUSTIFY || 
-                justification === ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT ||
-                justification === ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL) {
+                justification === ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT) {
                 return "ltr";
+            }
+            if (justification === ParagraphJustification.FULL_JUSTIFY_LASTLINE_FULL) {
+                return null; // Neutral full justification: defer to text language content
             }
         }
         var jStr = String(justification).toUpperCase();

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX - Host Engine
  * Module: InvisibleAnchors.jsx
  * Version: 2.0.0 (Smart Invisible Waypoints Engine)
@@ -14,7 +14,7 @@
 // Ø¥Ø²Ø§Ù„Ø© ÙƒÙ„ Ø§Ù„Ø¹Ù„Ø§Ù…Ø§Øª Ø§Ù„Ù…Ø®ÙÙŠØ© Ø§Ù„Ù‚Ø¯ÙŠÙ…Ø© Ù…Ù† Ø§Ù„Ù†Øµ Ù„ØªÙØ§Ø¯ÙŠ Ø§Ù„ØªÙƒØ±Ø§Ø± ÙˆØ¶Ù…Ø§Ù† Ù†Ù‚Ø§Ø¡ Ø§Ù„Ù†Øµ
 $._smartHighlighter.stripAnchors = function (text) {
     if (!text) return "";
-    return text.replace(/[\u200B\u2060\uFEFF\u200C\u200D\u200E\u200F\u061C]/g, "");
+    return text.replace(/[\u200B\u2060\uFEFF]/g, "");
 };
 
 // Ø­Ù‚Ù† Ø§Ù„Ø¹Ù„Ø§Ù…Ø§Øª Ø§Ù„Ù…Ø®ÙÙŠØ© Ø§Ù„Ø°ÙƒÙŠØ© Ø¹Ù†Ø¯ Ø¨Ø¯Ø§ÙŠØ© ÙˆÙ†Ù‡Ø§ÙŠØ© ÙƒÙ„ Ø³Ø·Ø± Ø£Ùˆ ØµÙ†Ø¯ÙˆÙ‚ Ù…Ø³ØªÙ‡Ø¯Ù ÙÙŠ Ø§Ù„Ù†Øµ
