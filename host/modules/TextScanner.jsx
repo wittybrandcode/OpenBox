@@ -177,6 +177,18 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
         var rNS = temp.sourceRectAtTime(comp.time, false).width;
         var fontSpaceW = Math.max(2, rWS - rNS);
 
+        // In Area Text, expand boxTextSize before measuring single lines and character offsets
+        // so After Effects never wraps single lines onto 2 lines, preventing trailing word and character truncation
+        if (isBoxText) {
+            try {
+                var expDoc = temp.property("Source Text").value;
+                if (expDoc && expDoc.boxText) {
+                    expDoc.boxTextSize = [100000, 100000];
+                    temp.property("Source Text").setValue(expDoc);
+                }
+            } catch (eExpBox) {}
+        }
+
         var linesData = [];
         for (var i = 0; i < numLines; i++) {
             var lineObj = visualLines[i];
@@ -231,11 +243,35 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
 
             // Ù‚ÙŠØ§Ø³ Ø§Ù„Ø¥Ø²Ø§Ø­Ø§Øª Ø§Ù„Ø£ÙÙ‚ÙŠØ© Ø§Ù„Ø¯Ù‚ÙŠÙ‚Ø© Ù„Ù„Ø³Ø·Ø± Ù†Ø³Ø¨Ø© Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø¯ÙˆØ¯ Ø§Ù„Ø¹Ø§Ù…Ø© Ù„Ù„ÙÙ‚Ø±Ø©
             // Exact per-line horizontal offsets relative to paragraph bounding box
-            var rFullRight = rFull.left + rFull.width;
-            var rLineRight = rLine.left + rLine.width;
-            var lineRightOffset = Math.max(0, Math.round((rFullRight - rLineRight) * 10) / 10);
-            var lineLeftOffset = Math.max(0, Math.round((rLine.left - rFull.left) * 10) / 10);
-            var lineCenterOffset = Math.round(((rLine.left + rLine.width / 2) - (rFull.left + rFull.width / 2)) * 10) / 10;
+            var lineRightOffset = 0;
+            var lineLeftOffset = 0;
+            var lineCenterOffset = 0;
+
+            if (isBoxText) {
+                // In Area Text, horizontal alignment is strictly relative to the full paragraph bounding box rFull
+                var diffW = Math.max(0, rFull.width - finalW);
+                var isRTLDir = (justifyType === "right") || (justification === 7414) || (justification === 7417) || ($._smartHighlighter.countDir(lText).rtl > 0);
+                if (justifyType === "center" || justification === 7415 || justification === 7418) {
+                    lineCenterOffset = 0;
+                    lineRightOffset = Math.round((diffW / 2) * 10) / 10;
+                    lineLeftOffset = Math.round((diffW / 2) * 10) / 10;
+                } else if (isRTLDir) {
+                    lineRightOffset = 0; // 100% flush on right start edge
+                    lineLeftOffset = Math.round(diffW * 10) / 10;
+                    lineCenterOffset = Math.round((-diffW / 2) * 10) / 10;
+                } else {
+                    lineLeftOffset = 0; // 100% flush on left start edge
+                    lineRightOffset = Math.round(diffW * 10) / 10;
+                    lineCenterOffset = Math.round((diffW / 2) * 10) / 10;
+                }
+            } else {
+                // Point Text: measure exact ink offsets relative to paragraph bounding box
+                var rFullRight = rFull.left + rFull.width;
+                var rLineRight = rLine.left + rLine.width;
+                lineRightOffset = Math.max(0, Math.round((rFullRight - rLineRight) * 10) / 10);
+                lineLeftOffset = Math.max(0, Math.round((rLine.left - rFull.left) * 10) / 10);
+                lineCenterOffset = Math.round(((rLine.left + rLine.width / 2) - (rFull.left + rFull.width / 2)) * 10) / 10;
+            }
 
             linesData.push({
                 lineIndex: i,

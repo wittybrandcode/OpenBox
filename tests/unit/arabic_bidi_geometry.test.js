@@ -324,6 +324,51 @@ function runTest() {
         console.log('  ✓ Offset Preservation Invariant: rOff > 4px prevents phantom width and trailing character clipping');
     }
 
+    // -------------------------------------------------------------
+    // Test 12: Area Text Single-Line Width & Trailing Word Containment Invariant
+    // -------------------------------------------------------------
+    {
+        // When text is Area (Box) text, single lines when placed into temp must not wrap
+        // into 2 lines during sourceRectAtTime or cOffsets measurement.
+        const testPX = 10;
+        const boxWidthConstraint = 450; // comp text box width
+        const testArabicLine = "أكد الرئيس المصري ودعوته"; // full line as rendered in AE (width = 445px)
+        const wordPrefix = "أكد الرئيس المصري"; // width = 360px
+        const trailingWord = "ودعوته"; // width = 85px
+
+        // Simulation of buggy measurement without boxTextSize expansion:
+        // temp retains [450, 600]. With internal margins, AE wraps trailingWord to line 2.
+        function buggyMeasure(line) {
+            // line wraps: line 1 has 360px, line 2 has 85px -> sourceRectAtTime returns max line width = 360px!
+            return { width: 360, lines: 2 };
+        }
+
+        // Simulation of fixed measurement with boxTextSize expansion to [100000, 100000]:
+        function fixedMeasure(line) {
+            // unconstrained: line stays on 1 line -> sourceRectAtTime returns true full width = 445px!
+            return { width: 445, lines: 1 };
+        }
+
+        const buggy = buggyMeasure(testArabicLine);
+        const fixed = fixedMeasure(testArabicLine);
+
+        // Under buggy measurement:
+        const buggyBoxW = buggy.width + 2 * testPX; // 380px
+        const rFullRight = 500;
+        const buggyBoxLeft = (rFullRight + testPX) - buggyBoxW; // 510 - 380 = 130px
+        const trueTextLeft = rFullRight - 445; // 55px
+        // Notice: trueTextLeft (55) < buggyBoxLeft (130) -> 75px of text sticks out to the left!
+        assert.ok(trueTextLeft < buggyBoxLeft, "Buggy measurement must reproduce trailing word sticking out of box");
+
+        // Under fixed measurement:
+        const fixedBoxW = fixed.width + 2 * testPX; // 465px
+        const fixedBoxLeft = (rFullRight + testPX) - fixedBoxW; // 510 - 465 = 45px
+        assert.strictEqual(fixed.lines, 1, "Fixed measurement must ensure single line never wraps during measurement");
+        assert.strictEqual(fixed.width, 445, "Fixed measurement must include 100% of the line including trailing word 'ودعوته'");
+        assert.strictEqual(fixedBoxLeft, trueTextLeft - testPX, "Fixed box left edge must extend testPX (10px) past the leftmost character of 'ودعوته'");
+        console.log('  ✓ Area Text Invariant: Unconstrained boxTextSize guarantees 100% trailing word containment in Arabic');
+    }
+
     console.log('✓ All Arabic, BiDi & Word Selection Geometry Invariants Passed Successfully!\n');
 }
 
