@@ -1,14 +1,21 @@
 /**
  * OPENBOX - Host Engine
  * Module: TextScanner.jsx
- * Version: 2.0.0 (Modular Architecture)
+ * Version: 2.3.0 (World-Ready Multi-Line Area Text & Exact Ink Envelope Engine)
  * 
  * High-precision Paragraph & Line Geometry Scanner:
- * Dissects visual line wraps, measures subpixel font metrics, and computes
- * exact cumulative character offsets (cOffsets) for subpixel typewriter tracking.
+ * - Preserves pristine TextDocument state from source layer on every measurement
+ *   (preventing font-fallback and BiDi direction corruption on Arabic layers).
+ * - Measures each visual line inside the original Area Text boxTextSize BEFORE
+ *   expanding to [100000, 100000], using both real next-line prefix soft-wrap probes
+ *   and mathematically locked soft-wrap continuation probes so Adobe's World-Ready
+ *   Paragraph Composer applies authentic intermediate-line spacing without forcing
+ *   rigid full-box widths on ragged lines.
+ * - Extracts exact in-box per-line horizontal offsets (rightOffset, leftOffset,
+ *   centerOffset) relative to rFull and normalizes cOffsets / wOffsets to finalW.
  */
 
-// ÙØ­Øµ Ø£Ø³Ø·Ø± Ø§Ù„ÙÙ‚Ø±Ø© Ø¨Ø¯Ù‚Ø© ØªØ§Ù…Ø© Ù…Ø¹ Ø­Ù…Ø§ÙŠØ© Ù…Ù† Ø§Ù„Ø£Ø®Ø·Ø§Ø¡ (ÙŠØ¯Ø¹Ù… ØªÙ…Ø±ÙŠØ± Ù†Øµ Ù†Ø¸ÙŠÙ Ø§Ø®ØªÙŠØ§Ø±ÙŠ)
+// فحص أسطر الفقرة بدقة تامة مع حماية من الأخطاء
 $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
     var temp = null;
     try {
@@ -17,126 +24,13 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
         var fullText = $._smartHighlighter.stripAnchors((typeof optText === "string") ? optText : textDoc.text);
         var fontSize = textDoc.fontSize;
 
-        // Ø§Ù„ØªÙ‚Ø§Ø· Ù…Ø­Ø§Ø°Ø§Ø© Ø§Ù„Ù†Øµ Ù…Ù† Ù„ÙˆØ­Ø© Paragraph
+        // التقاط محاذاة النص من لوحة Paragraph
         var justification = null;
         try {
             justification = textDoc.justification;
         } catch (eJ) {}
 
-        // Ø¥Ø°Ø§ ÙƒØ§Ù†Øª Ø·Ø¨Ù‚Ø© Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ØªØ­Ù…Ù„ Ø§Ø³Ù… Ø§Ù„Ù…Ø­Ø±Ùƒ Ø§Ù„Ù…Ø¤Ù‚Øª Ù†ØªÙŠØ¬Ø© Ø®Ø·Ø£ Ø³Ø§Ø¨Ù‚ØŒ Ù†Ø¹ÙŠØ¯ ØªØ³Ù…ÙŠØªÙ‡Ø§ ÙÙˆØ±Ø§Ù‹ Ù„Ø­Ù…Ø§ÙŠØªÙ‡Ø§
-        if (textLayer.name === $._smartHighlighter.SCAN_TEMP_ENGINE) {
-            textLayer.name = "Highlight Text";
-        }
-
-        // ØªÙ†Ø¸ÙŠÙ Ø£ÙŠ Ø·Ø¨Ù‚Ø§Øª ÙØ­Øµ Ù…Ø¤Ù‚ØªØ© Ù‚Ø¯ÙŠÙ…Ø© Ø¹Ø§Ù„Ù‚Ø© Ù…Ø¹ Ø§Ø³ØªØ«Ù†Ø§Ø¡ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù‚Ø·Ø¹Ø§Ù‹
-        for (var ci = comp.numLayers; ci >= 1; ci--) {
-            try {
-                var chkL = comp.layer(ci);
-                if (chkL && chkL !== textLayer && chkL.name === $._smartHighlighter.SCAN_TEMP_ENGINE) {
-                    chkL.remove();
-                }
-            } catch (eC) {}
-        }
-
-        temp = textLayer.duplicate();
-        temp.name = $._smartHighlighter.SCAN_TEMP_ENGINE;
-        temp.enabled = true; // ÙŠØ¬Ø¨ Ø£Ù† ØªÙƒÙˆÙ† Ù…ÙØ¹Ù„Ø© Ù„ÙŠØªÙ…ÙƒÙ† After Effects Ù…Ù† Ø­Ø³Ø§Ø¨ Ø£Ø¨Ø¹Ø§Ø¯ sourceRectAtTime
-        temp.guideLayer = true; // Ø·Ø¨Ù‚Ø© Ø¥Ø±Ø´Ø§Ø¯ÙŠØ© Ù„Ø§ ØªØ¤Ø«Ø± Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø´Ù‡Ø¯ Ø£Ùˆ Ø§Ù„Ø±ÙŠÙ†Ø¯Ø±
-
-        // Ø¯Ø§Ù„Ø© Ù…Ø³Ø§Ø¹Ø¯Ø© Ù„ØªØ­Ø¯ÙŠØ« Ù†Øµ Ø§Ù„Ø·Ø¨Ù‚Ø© Ø§Ù„Ù…Ø¤Ù‚ØªØ© Ù…Ø¹ Ø§Ù„Ø­ÙØ§Ø¸ Ø§Ù„ØªØ§Ù… 100% Ø¹Ù„Ù‰ ØªÙ†Ø³ÙŠÙ‚ Ø§Ù„Ø®Ø· ÙˆØ§Ù„Ù…Ø­Ø§Ø°Ø§Ø© ÙˆØ§Ù„ØªØ¨Ø§Ø¹Ø¯
-        var setTempText = function (str) {
-            try {
-                var d = temp.property("Source Text").value;
-                d.text = str;
-                temp.property("Source Text").setValue(d);
-            } catch (eDoc) {
-                try { temp.property("Source Text").setValue(str); } catch (eRaw) {}
-            }
-        };
-
-        // Ù‚ÙŠØ§Ø³ Ø§Ù„Ø§Ø±ØªÙØ§Ø¹ Ø§Ù„Ù…Ø±Ø¬Ø¹ÙŠ Ù„Ù„Ø³Ø·Ø± Ø¨Ø¹ÙŠÙ†Ø© Ù‚ÙŠØ§Ø³ÙŠØ© Ø´Ø§Ù…Ù„Ø© (Ø£Ø­Ø±Ù Ø¹Ù„ÙˆÙŠØ© ÙˆØ³ÙÙ„ÙŠØ© ÙˆØ¹Ø±Ø¨ÙŠØ© ÙˆØ£Ø±Ù‚Ø§Ù…)
-        setTempText("\u0041\u0067\u00C9\u064A\u0640\u0031"); // "AgÉيـ1"
-        var sampleR = temp.sourceRectAtTime(comp.time, false);
-        var refLineH = Math.max(sampleR.height, fontSize * 1.15);
-        if (refLineH <= 0) refLineH = Math.max(fontSize, 24);
-
-        // فحص ما إذا كانت طبقة النص Paragraph (Area) Text أو Point Text
-        var isBoxText = false;
-        var boxSize = null;
-        try {
-            isBoxText = !!textDoc.boxText;
-            boxSize = textDoc.boxTextSize;
-        } catch (eBox) {
-            isBoxText = false;
-        }
-
-        var rawParagraphs = fullText.split(/\r\n|[\r\n\u0003]/);
-        var visualLines = [];
-
-        if (!isBoxText) {
-            // Point Text: لا يلتف أوتوماتيكياً في After Effects نهائياً
-            // كل سطر مفصول بـ Enter يمثل سطراً بصرياً واحداً بدقة 100% دون تقطيع زائف
-            for (var p = 0; p < rawParagraphs.length; p++) {
-                var pText = rawParagraphs[p];
-                if (pText.replace(/\s/g, "").length === 0) continue;
-                visualLines.push({
-                    text: pText.replace(/\s+$/, ""),
-                    isLastOfPara: true
-                });
-            }
-        } else {
-            // Area (Box) Text: يلتف عند تجاوز عرض الصندوق boxTextSize
-            // فحص الالتفاف بمقارنة قفزة الارتفاع لسطرين كاملين (1.6 * refLineH) أو تجاوز عرض الصندوق
-            for (var p = 0; p < rawParagraphs.length; p++) {
-                var para = rawParagraphs[p];
-                if (para.replace(/\s/g, "").length === 0) continue;
-
-                var words = para.match(/\S+|\s+/g) || [];
-                if (words.length === 0) continue;
-
-                var curLine = "";
-
-                for (var w = 0; w < words.length; w++) {
-                    var token = words[w];
-                    var testStr = curLine ? (curLine + token) : token;
-                    setTempText(testStr);
-                    var r = temp.sourceRectAtTime(comp.time, false);
-
-                    // يلتف النص في After Effects عندما ينشئ سطراً ثانياً فيتضاعف الارتفاع إلى سطرين كاملين
-                    var wrapsToNextLine = (curLine.replace(/\s/g, "").length > 0) && (r.height > refLineH * 1.6);
-
-                    // فحص عرض صندوق النص إن وجد
-                    if (!wrapsToNextLine && boxSize && boxSize[0] > 10 && curLine.replace(/\s/g, "").length > 0) {
-                        if (r.width > boxSize[0] + 5) {
-                            wrapsToNextLine = true;
-                        }
-                    }
-
-                    if (wrapsToNextLine) {
-                        visualLines.push({
-                            text: curLine.replace(/\s+$/, ""),
-                            isLastOfPara: false
-                        });
-                        curLine = token.replace(/^\s+/, "");
-                    } else {
-                        curLine = testStr;
-                    }
-                }
-                if (curLine.replace(/\s/g, "").length > 0) {
-                    visualLines.push({
-                        text: curLine.replace(/\s+$/, ""),
-                        isLastOfPara: true
-                    });
-                }
-            }
-        }
-
-        var numLines = visualLines.length;
-        if (numLines === 0) {
-            return null;
-        }
-
-        // ÙØ­Øµ Ù…Ø§ Ø¥Ø°Ø§ ÙƒØ§Ù† Ø§Ù„Ù†Øµ Ù…Ø¶Ø¨ÙˆØ·Ø§Ù‹ (Justified)
+        // فحص ما إذا كان النص مضبوطاً (Justified) مبكراً لاستخدامه في فحص الالتفاف
         var isJustified = false;
         var isJustifyFullAll = false;
         var justifyType = "left"; // "left", "right", "center", "full"
@@ -164,46 +58,317 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
             } catch (eJ2) {}
         }
 
-        setTempText(visualLines[0].text);
-        var rFirst = temp.sourceRectAtTime(comp.time, false);
+        // إذا كانت طبقة المستخدم تحمل اسم المحرك المؤقت نتيجة خطأ سابق، نعيد تسميتها فوراً لحمايتها
+        if (textLayer.name === $._smartHighlighter.SCAN_TEMP_ENGINE) {
+            textLayer.name = "Highlight Text";
+        }
 
+        // تنظيف أي طبقات فحص مؤقتة قديمة عالقة مع استثناء طبقة النص الأصلية قطعاً
+        for (var ci = comp.numLayers; ci >= 1; ci--) {
+            try {
+                var chkL = comp.layer(ci);
+                if (chkL && chkL !== textLayer && chkL.name === $._smartHighlighter.SCAN_TEMP_ENGINE) {
+                    chkL.remove();
+                }
+            } catch (eC) {}
+        }
+
+        temp = textLayer.duplicate();
+        temp.name = $._smartHighlighter.SCAN_TEMP_ENGINE;
+        temp.enabled = true; // يجب أن تكون مفعلة ليتمكن After Effects من حساب أبعاد sourceRectAtTime
+        temp.guideLayer = true; // طبقة إرشادية لا تؤثر على المشهد أو الريندر
+
+        // فحص ما إذا كانت طبقة النص Paragraph (Area) Text أو Point Text
+        var isBoxText = false;
+        var boxSize = null;
+        try {
+            isBoxText = !!textDoc.boxText;
+            if (isBoxText && textDoc.boxTextSize) {
+                boxSize = [textDoc.boxTextSize[0], textDoc.boxTextSize[1]];
+            }
+        } catch (eBox) {
+            isBoxText = false;
+        }
+
+        // دالة مساعدة لتحديث نص الطبقة المؤقتة بالاعتماد على نسخة نظيفة من الطبقة الأصلية (srcProp.value)
+        // لمنع أي تلوث في الخط البديل (Font Fallback) أو انقلاب اتجاه الفقرة (BiDi Direction) أثناء القياس
+        var customBoxSize = null;
+        var setTempText = function (str) {
+            try {
+                var d = srcProp.value;
+                if (customBoxSize !== null && d.boxText) {
+                    d.boxTextSize = customBoxSize;
+                } else if (boxSize !== null && d.boxText) {
+                    d.boxTextSize = [boxSize[0], boxSize[1]];
+                }
+                d.text = str;
+                temp.property("Source Text").setValue(d);
+            } catch (eDoc) {
+                try {
+                    var dFallback = temp.property("Source Text").value;
+                    dFallback.text = str;
+                    temp.property("Source Text").setValue(dFallback);
+                } catch (eRaw) {}
+            }
+        };
+
+        var docDirCounts = $._smartHighlighter.countDir ? $._smartHighlighter.countDir(fullText) : { rtl: 0, ltr: 0 };
+        var isArabicDoc = (docDirCounts.rtl > 0);
+
+        // قياس الارتفاع المرجعي للسطر بعينة متوافقة مع لغة الخط الأصلي دون محارف لاتينية معجمة تسبب Font Fallback
+        setTempText(isArabicDoc ? "\u0623\u064A\u0640\u062C\u0031" : "Ag1");
+        var sampleR = temp.sourceRectAtTime(comp.time, false);
+        var refLineH = Math.max(sampleR.height, fontSize * 1.15);
+        if (refLineH <= 0) refLineH = Math.max(fontSize, 24);
+
+        // قياس الارتفاع المرجعي لسطرين لاكتشاف قفزة الالتفاف بدقة قاطعة
+        setTempText(isArabicDoc ? "\u0623\r\u0628" : "A\rB");
+        var sampleR2 = temp.sourceRectAtTime(comp.time, false);
+        var ref2LineH = Math.max(sampleR2.height, refLineH * 1.8);
+
+        // قياس الفقرة الكاملة داخل الصندوق الأصلي أولاً قبل أي تغيير في الأبعاد
         setTempText(fullText);
         var rFull = temp.sourceRectAtTime(comp.time, false);
+        var rFullRight = rFull.left + rFull.width;
 
-        // Ù‚ÙŠØ§Ø³ Ø¹Ø±Ø¶ Ø§Ù„Ù…Ø³Ø§ÙØ© Ø§Ù„ÙØ¹Ù„ÙŠ Ù„Ù„Ø®Ø· (Exact font space width)
-        setTempText("n n");
+        // حساب عرض التخطيط الحقيقي لصندوق Area Text
+        var justifiedLayoutW = (isBoxText && boxSize && typeof boxSize[0] === "number" && boxSize[0] > 0) ? boxSize[0] : rFull.width;
+        if (isBoxText && boxSize && typeof boxSize[0] === "number" && boxSize[0] > 0) {
+            try {
+                var lInd = (typeof textDoc.leftIndent === "number") ? textDoc.leftIndent : 0;
+                var rInd = (typeof textDoc.rightIndent === "number") ? textDoc.rightIndent : 0;
+                justifiedLayoutW = Math.max(10, justifiedLayoutW - lInd - rInd);
+            } catch (eInd) {}
+        }
+        if (rFull.width > justifiedLayoutW) {
+            justifiedLayoutW = rFull.width;
+        }
+        justifiedLayoutW = Math.round(justifiedLayoutW * 10) / 10;
+
+        var rawParagraphs = fullText.split(/\r\n|[\r\n\u0003]/);
+        var visualLines = [];
+        var currentSlot = 0;
+
+        if (!isBoxText) {
+            // Point Text: لا يلتف أوتوماتيكياً في After Effects نهائياً
+            // كل سطر مفصول بـ Enter يمثل سطراً بصرياً واحداً بدقة 100%
+            for (var p = 0; p < rawParagraphs.length; p++) {
+                var pText = rawParagraphs[p];
+                if (pText.replace(/\s/g, "").length === 0) {
+                    currentSlot++; // الحفاظ على الفتحة الرأسية للسطر الفارغ
+                    continue;
+                }
+                visualLines.push({
+                    text: pText.replace(/\s+$/, ""),
+                    isLastOfPara: true,
+                    slotIndex: currentSlot++
+                });
+            }
+        } else {
+            // Area (Box) Text: يلتف عند تجاوز عرض الصندوق boxTextSize
+            for (var p = 0; p < rawParagraphs.length; p++) {
+                var para = rawParagraphs[p];
+                if (para.replace(/\s/g, "").length === 0) {
+                    currentSlot++; // الحفاظ على الفتحة الرأسية للسطر الفارغ بين الفقرات
+                    continue;
+                }
+
+                var words = para.match(/\S+|\s+/g) || [];
+                if (words.length === 0) {
+                    currentSlot++;
+                    continue;
+                }
+
+                var curLine = "";
+
+                for (var w = 0; w < words.length; w++) {
+                    var token = words[w];
+                    var testStr = curLine ? (curLine + token) : token;
+
+                    var wrapsToNextLine = false;
+                    if (curLine.replace(/\s/g, "").length > 0) {
+                        if (isJustified) {
+                            // في النصوص المضبوطة: نختبر السطر كسطر وسيط
+                            setTempText(testStr + "\r.");
+                            var rTest = temp.sourceRectAtTime(comp.time, false);
+                            wrapsToNextLine = (rTest.height > ref2LineH * 1.25);
+                        } else {
+                            setTempText(testStr);
+                            var r = temp.sourceRectAtTime(comp.time, false);
+                            wrapsToNextLine = (r.height > refLineH * 1.6);
+                        }
+                    } else {
+                        setTempText(testStr);
+                    }
+
+                    if (wrapsToNextLine) {
+                        visualLines.push({
+                            text: curLine.replace(/\s+$/, ""),
+                            isLastOfPara: false,
+                            slotIndex: currentSlot++
+                        });
+                        curLine = token.replace(/^\s+/, "");
+                    } else {
+                        curLine = testStr;
+                    }
+                }
+                if (curLine.replace(/\s/g, "").length > 0) {
+                    visualLines.push({
+                        text: curLine.replace(/\s+$/, ""),
+                        isLastOfPara: true,
+                        slotIndex: currentSlot++
+                    });
+                }
+            }
+        }
+
+        var totalSlots = Math.max(currentSlot, visualLines.length);
+        var numLines = visualLines.length;
+        if (numLines === 0) {
+            return null;
+        }
+
+        // قياس عرض المسافة الفعلي للخط وعرض وحدة الكشيدة/النقطة لبناء مسبار الالتفاف الناعم (Soft-Wrap Probe)
+        var probeChar = isArabicDoc ? "\u0640" : ".";
+        var probeBaseStr = "";
+        for (var pc = 0; pc < 20; pc++) probeBaseStr += probeChar;
+        setTempText(probeBaseStr);
+        var probe20W = Math.max(4, temp.sourceRectAtTime(comp.time, false).width);
+        var singleProbeCharW = Math.max(0.5, probe20W / 20);
+
+        setTempText(isArabicDoc ? "\u0646 \u0646" : "n n");
         var rWS = temp.sourceRectAtTime(comp.time, false).width;
-        setTempText("nn");
+        setTempText(isArabicDoc ? "\u0646\u0646" : "nn");
         var rNS = temp.sourceRectAtTime(comp.time, false).width;
         var fontSpaceW = Math.max(2, rWS - rNS);
 
-        // In Area Text, expand boxTextSize before measuring single lines and character offsets
-        // so After Effects never wraps single lines onto 2 lines, preventing trailing word and character truncation
-        if (isBoxText) {
-            try {
-                var expDoc = temp.property("Source Text").value;
-                if (expDoc && expDoc.boxText) {
-                    expDoc.boxTextSize = [100000, 100000];
-                    temp.property("Source Text").setValue(expDoc);
+        // =========================================================================
+        // المرحلة 1: قياس الأبعاد والإحداثيات الحقيقية لكل سطر داخل boxTextSize الأصلي
+        // مع محاكاة الالتفاف الطبيعي (Soft-Wrap) لمحرك World-Ready Paragraph Composer
+        // =========================================================================
+        var inBoxMetrics = [];
+        for (var bi = 0; bi < numLines; bi++) {
+            var bLineObj = visualLines[bi];
+            var bText = bLineObj.text;
+
+            setTempText(bText);
+            var rInBox = temp.sourceRectAtTime(comp.time, false);
+
+            var bLeft = rInBox.left;
+            var bRight = rInBox.left + rInBox.width;
+            var bWidth = rInBox.width;
+
+            // إذا كان السطر وحده قد التف داخل الصندوق (يحدث أحياناً في النصوص المضبوطة بشدة)
+            if (isBoxText && rInBox.height > refLineH * 1.6) {
+                bLeft = rFull.left;
+                bRight = rFullRight;
+                bWidth = rFull.width;
+            } else if (isBoxText && !bLineObj.isLastOfPara) {
+                // السطر وسيط ملتف تلقائياً (!isLastOfPara):
+                // عند قياسه منفرداً يعامله After Effects كسطر أخير في فقرة مستقلة فلا يطبق تمدد المسافات
+                // الخاص بمحرك World-Ready Paragraph Composer.
+                // لذلك نقيسه كسطر ملتف فعلياً داخل الصندوق الأصلي عبر مسبارين آمنين هندسياً:
+
+                // المسبار الأول: إلحاق أول كلمة أو كلمتين من السطر التالي (بشرط أن تكون أضيق من السطر الحالي)
+                if (bi + 1 < numLines) {
+                    var nextLineWords = visualLines[bi + 1].text.match(/\S+/g) || [];
+                    var maxTestWords = Math.min(2, nextLineWords.length);
+                    var nextPrefix = "";
+                    for (var nw = 0; nw < maxTestWords; nw++) {
+                        nextPrefix = nextPrefix ? (nextPrefix + " " + nextLineWords[nw]) : nextLineWords[nw];
+                        setTempText(nextPrefix);
+                        var rNP = temp.sourceRectAtTime(comp.time, false);
+                        if (rNP.width > 0 && rNP.width < bWidth * 0.82 && rNP.height <= refLineH * 1.45) {
+                            setTempText(bText + " " + nextPrefix);
+                            var rWrapNext = temp.sourceRectAtTime(comp.time, false);
+                            // التحقق من أن السطر التف إلى سطرين بالضبط دون أن يسحب كلمة إلى السطر الثالث
+                            if (rWrapNext.height > refLineH * 1.45 && rWrapNext.height <= ref2LineH * 1.35) {
+                                var wnLeft = rWrapNext.left;
+                                var wnRight = rWrapNext.left + rWrapNext.width;
+                                if (rWrapNext.width >= bWidth && rWrapNext.width <= rFull.width + 2) {
+                                    bLeft = Math.min(bLeft, wnLeft);
+                                    bRight = Math.max(bRight, wnRight);
+                                    bWidth = bRight - bLeft;
+                                }
+                            }
+                        }
+                    }
                 }
-            } catch (eExpBox) {}
+
+                // المسبار الثاني (المقفل رياضياً): بناء كلمة متصلة وهمية على السطر الثاني
+                // تحقق المتباينة: (boxW - lastWordW) < dummyW < lineW
+                // مما يمنع المحرك رياضياً من إنزال آخر كلمة ("آخرين") للسطر الثاني، ويمنع السطر الثاني من تجاوز عرض السطر الأول
+                var lineTokens = bText.match(/\S+/g) || [];
+                if (lineTokens.length > 1) {
+                    var lastWordStr = lineTokens[lineTokens.length - 1];
+                    setTempText(lastWordStr);
+                    var rLastW = temp.sourceRectAtTime(comp.time, false);
+                    var lastW = rLastW.width;
+                    var minDummyW = Math.max(20, justifiedLayoutW - lastW + 12);
+                    var maxDummyW = bWidth - 12;
+
+                    if (minDummyW < maxDummyW) {
+                        var targetDummyW = (minDummyW + maxDummyW) * 0.5;
+                        var repeatCount = Math.max(5, Math.min(400, Math.round(targetDummyW / singleProbeCharW)));
+                        var dummyToken = "";
+                        for (var dc = 0; dc < repeatCount; dc++) dummyToken += probeChar;
+
+                        setTempText(dummyToken);
+                        var rDummy = temp.sourceRectAtTime(comp.time, false);
+                        if (rDummy.width > (justifiedLayoutW - lastW) && rDummy.width < bWidth * 0.96 && rDummy.height <= refLineH * 1.45) {
+                            // اختبار التفاف بسطرين واختبار بـ 3 أسطر لمحاكاة الفقرة الكاملة في World-Ready Composer
+                            var probes = [
+                                bText + " " + dummyToken,
+                                bText + " " + dummyToken + " " + dummyToken
+                            ];
+                            for (var pr = 0; pr < probes.length; pr++) {
+                                setTempText(probes[pr]);
+                                var rLock = temp.sourceRectAtTime(comp.time, false);
+                                if (rLock.height > refLineH * 1.45 && rLock.width >= bWidth && rLock.width <= rFull.width + 2) {
+                                    bLeft = Math.min(bLeft, rLock.left);
+                                    bRight = Math.max(bRight, rLock.left + rLock.width);
+                                    bWidth = bRight - bLeft;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            inBoxMetrics.push({
+                left: bLeft,
+                right: bRight,
+                width: bWidth
+            });
+        }
+
+        // =========================================================================
+        // المرحلة 2: توسيع صندوق النص في الطبقة المؤقتة لقياس cOffsets بحرية دون التفاف
+        // =========================================================================
+        if (isBoxText) {
+            customBoxSize = [100000, 100000];
         }
 
         var linesData = [];
         for (var i = 0; i < numLines; i++) {
             var lineObj = visualLines[i];
+            var boxMetric = inBoxMetrics[i];
+
             setTempText(lineObj.text);
             var rLine = temp.sourceRectAtTime(comp.time, false);
+            var rawUnconstrainedW = rLine.width;
 
-            var finalW = rLine.width;
+            // اعتماد العرض الفعلي الشامل لتمدد World-Ready Composer داخل الفقرة
+            var finalW = isBoxText ? Math.max(rawUnconstrainedW, boxMetric.width) : rawUnconstrainedW;
             if (isJustified) {
-                // ÙÙŠ Ø§Ù„Ù†Øµ Ø§Ù„Ù…Ø¶Ø¨ÙˆØ·: Ø§Ù„Ø³Ø·ÙˆØ± Ø§Ù„Ù…Ù…ØªØ¯Ø© (ØºÙŠØ± Ø§Ù„Ø£Ø®ÙŠØ±Ø©) ØªØ£Ø®Ø° Ø¹Ø±Ø¶ Ø§Ù„ÙÙ‚Ø±Ø© Ø§Ù„ÙƒØ§Ù…Ù„ rFull.width
+                // في النصوص المضبوطة: الأسطر الممتدة (غير الأخيرة في كل فقرة) تأخذ عرض التخطيط الفعلي justifiedLayoutW
                 if (isJustifyFullAll || !lineObj.isLastOfPara) {
-                    finalW = rFull.width;
+                    finalW = justifiedLayoutW;
                 }
             }
+            finalW = Math.round(finalW * 100) / 100;
 
-            // Ù‚ÙŠØ§Ø³ Ø§Ù„Ø¹Ø±Ø¶ Ø§Ù„ØªØ±Ø§ÙƒÙ…ÙŠ Ø§Ù„Ø­Ù‚ÙŠÙ‚ÙŠ Ø¨Ø§Ù„Ø¨ÙŠÙƒØ³Ù„ Ù„ÙƒÙ„ Ø­Ø±Ù (Exact Cumulative Character Offsets)
+            // قياس العرض التراكمي الحقيقي بالبيكسل لكل حرف (Exact Cumulative Character Offsets)
             var cOffsets = [];
             var lText = lineObj.text;
             var prevOffW = 0;
@@ -220,15 +385,17 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
                 prevOffW = curSubW;
             }
 
-            // Ø¥Ø°Ø§ ÙƒØ§Ù† Ø§Ù„Ø³Ø·Ø± Ù…Ø¶Ø¨ÙˆØ·Ø§Ù‹ ÙˆÙ„Ù‡ Ø¹Ø±Ø¶ Ù†Ù‡Ø§Ø¦ÙŠ Ø£ÙƒØ¨Ø±ØŒ Ù†Ø¶Ø¨Ø· Ø§Ù„Ù†Ø³Ø¨Ø© Ø§Ù„ØªØ±Ø§ÙƒÙ…ÙŠØ© Ù„Ù„Ø­Ø±ÙˆÙ Ù„ØªØµÙ„ Ù„Ù€ finalW
-            if (isJustified && finalW > 0 && cOffsets.length > 0 && prevOffW > 0 && Math.abs(finalW - prevOffW) > 1) {
-                var justRatio = finalW / prevOffW;
+            // مواءمة الإزاحات التراكمية للحروف (cOffsets) مع العرض النهائي الفعلي للسطر (finalW)
+            // سواء كان التمدد ناتجاً عن الضبط الكلي (Justify) أو عن توزيع المسافات في World-Ready Composer
+            if (finalW > 0 && cOffsets.length > 0 && prevOffW > 0 && Math.abs(finalW - prevOffW) > 0.5) {
+                var scaleRatio = finalW / prevOffW;
                 for (var jc = 0; jc < cOffsets.length; jc++) {
-                    cOffsets[jc] = Math.round(cOffsets[jc] * justRatio * 10) / 10;
+                    cOffsets[jc] = Math.round(cOffsets[jc] * scaleRatio * 10) / 10;
                 }
+                cOffsets[cOffsets.length - 1] = Math.round(finalW * 10) / 10;
             }
 
-            // Ø­Ø³Ø§Ø¨ Ø¥Ø²Ø§Ø­Ø§Øª Ø§Ù„ÙƒÙ„Ù…Ø§Øª Ø§Ù„Ø¯Ù‚ÙŠÙ‚Ø© Ù„ØªØ²Ø§Ù…Ù† Ø§Ù„ÙƒÙ„Ù…Ø§Øª (Word Offsets)
+            // حساب إزاحات الكلمات الدقيقة لتزامن الكلمات (Word Offsets)
             var wOffsets = [];
             var wordRegex = /\S+/g;
             var wMatch;
@@ -239,34 +406,45 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
             }
             if (wOffsets.length === 0) {
                 wOffsets.push(Math.round(finalW * 10) / 10);
+            } else {
+                wOffsets[wOffsets.length - 1] = Math.round(finalW * 10) / 10;
             }
 
-            // Ù‚ÙŠØ§Ø³ Ø§Ù„Ø¥Ø²Ø§Ø­Ø§Øª Ø§Ù„Ø£ÙÙ‚ÙŠØ© Ø§Ù„Ø¯Ù‚ÙŠÙ‚Ø© Ù„Ù„Ø³Ø·Ø± Ù†Ø³Ø¨Ø© Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø¯ÙˆØ¯ Ø§Ù„Ø¹Ø§Ù…Ø© Ù„Ù„ÙÙ‚Ø±Ø©
-            // Exact per-line horizontal offsets relative to paragraph bounding box
+            // قياس الإزاحات الأفقية الدقيقة للسطر نسبة إلى الحدود الفعلية للفقرة الكاملة (rFull)
             var lineRightOffset = 0;
             var lineLeftOffset = 0;
             var lineCenterOffset = 0;
 
             if (isBoxText) {
-                // In Area Text, horizontal alignment is strictly relative to the full paragraph bounding box rFull
-                var diffW = Math.max(0, rFull.width - finalW);
-                var isRTLDir = (justifyType === "right") || (justification === 7414) || (justification === 7417) || ($._smartHighlighter.countDir(lText).rtl > 0);
-                if (justifyType === "center" || justification === 7415 || justification === 7418) {
+                if (isJustified && (isJustifyFullAll || !lineObj.isLastOfPara)) {
+                    lineRightOffset = 0;
+                    lineLeftOffset = 0;
                     lineCenterOffset = 0;
-                    lineRightOffset = Math.round((diffW / 2) * 10) / 10;
-                    lineLeftOffset = Math.round((diffW / 2) * 10) / 10;
-                } else if (isRTLDir) {
-                    lineRightOffset = 0; // 100% flush on right start edge
-                    lineLeftOffset = Math.round(diffW * 10) / 10;
-                    lineCenterOffset = Math.round((-diffW / 2) * 10) / 10;
                 } else {
-                    lineLeftOffset = 0; // 100% flush on left start edge
-                    lineRightOffset = Math.round(diffW * 10) / 10;
-                    lineCenterOffset = Math.round((diffW / 2) * 10) / 10;
+                    // استخدام الإحداثيات الفعلية المقاسة داخل الصندوق الأصلي (boxMetric)
+                    // لضمان عدم ضياع أي إزاحة ناتجة عن المحاذاة أو فروق هوامش الحروف
+                    var effLeft = boxMetric.left;
+                    var effRight = boxMetric.right;
+                    var isRTLDir = (justifyType === "right") || (justification === 7414) || (justification === 7417) || ($._smartHighlighter.countDir(lText).rtl > 0);
+
+                    if (finalW > boxMetric.width + 0.5) {
+                        var extraW = finalW - boxMetric.width;
+                        if (justifyType === "center" || justification === 7415 || justification === 7418) {
+                            effLeft -= extraW / 2;
+                            effRight += extraW / 2;
+                        } else if (isRTLDir && justification !== 7413 && justification !== 7416) {
+                            effLeft = effRight - finalW;
+                        } else if (!isRTLDir || justification === 7413 || justification === 7416) {
+                            effRight = effLeft + finalW;
+                        }
+                    }
+
+                    lineRightOffset = Math.max(0, Math.round((rFullRight - effRight) * 10) / 10);
+                    lineLeftOffset = Math.max(0, Math.round((effLeft - rFull.left) * 10) / 10);
+                    lineCenterOffset = Math.round((((effLeft + effRight) / 2) - (rFull.left + rFull.width / 2)) * 10) / 10;
                 }
             } else {
                 // Point Text: measure exact ink offsets relative to paragraph bounding box
-                var rFullRight = rFull.left + rFull.width;
                 var rLineRight = rLine.left + rLine.width;
                 lineRightOffset = Math.max(0, Math.round((rFullRight - rLineRight) * 10) / 10);
                 lineLeftOffset = Math.max(0, Math.round((rLine.left - rFull.left) * 10) / 10);
@@ -275,8 +453,13 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
 
             linesData.push({
                 lineIndex: i,
+                slotIndex: (typeof lineObj.slotIndex === "number") ? lineObj.slotIndex : i,
+                totalSlots: totalSlots,
                 text: lineObj.text,
                 width: finalW,
+                rawWidth: rawUnconstrainedW,
+                inBoxLeft: boxMetric.left,
+                inBoxRight: boxMetric.right,
                 height: refLineH,
                 lineH: refLineH,
                 isLastOfPara: lineObj.isLastOfPara,
@@ -292,8 +475,8 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
             });
         }
 
-        // ØªÙˆØ²ÙŠØ¹ Ù‚Ù…Ù… Ø§Ù„Ø£Ø³Ø·Ø± Ø¨ØªÙ†Ø§Ø³Ù‚ Ù‡Ù†Ø¯Ø³ÙŠ Ù…ÙˆØ­Ø¯ Ø£Ùˆ Ù‚ÙŠØ§Ø³ Ø§Ù„Ù…ÙˆØ¶Ø¹ Ø§Ù„ÙØ¹Ù„ÙŠ Ø¹Ù†Ø¯ ÙˆØ¬ÙˆØ¯ ÙÙˆØ§ØµÙ„
-        var linePitch = (numLines > 1) ? ((rFull.height - refLineH) / (numLines - 1)) : 0;
+        // توزيع قمم الأسطر بتناسب هندسي دقيق معتمد على totalSlots بما يشمل فواصل الأسطر الفارغة
+        var linePitch = (totalSlots > 1) ? ((rFull.height - refLineH) / (totalSlots - 1)) : 0;
         var cursor = 0;
         var totalWords = 0;
         for (var t = 0; t < numLines; t++) {
@@ -310,9 +493,9 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
                 cursor += visualLines[t].text.length;
             }
 
-            linesData[t].top = Math.round((t * linePitch) * 10) / 10;
+            linesData[t].top = Math.round((linesData[t].slotIndex * linePitch) * 10) / 10;
 
-            // ØªØ­Ø¯ÙŠØ¯ Ù†Ø·Ø§Ù‚ Ø§Ù„ÙƒÙ„Ù…Ø§Øª Ù„Ù„Ø³Ø·Ø± (wordStart Ùˆ wordEnd)
+            // تحديد نطاق الكلمات للسطر (wordStart و wordEnd)
             linesData[t].wordStart = totalWords;
             var numWordsInLine = (linesData[t].wOffsets) ? linesData[t].wOffsets.length : 1;
             linesData[t].wordEnd = totalWords + numWordsInLine;
@@ -320,15 +503,21 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
         }
         if (totalWords <= 0) totalWords = 1;
 
-        $._smartHighlighter.log("scan: " + numLines + " lines, " + totalWords + " words, isJustified=" + isJustified + " (" + justifyType + "), fullW=" + rFull.width.toFixed(1) + ", refH=" + refLineH.toFixed(1));
+        $._smartHighlighter.log("scan: " + numLines + " lines, " + totalSlots + " slots, " + totalWords + " words, isJustified=" + isJustified + " (" + justifyType + "), fullW=" + rFull.width.toFixed(1) + ", refH=" + refLineH.toFixed(1));
 
         return {
             linesData: linesData,
             numLines: numLines,
+            totalSlots: totalSlots,
             numWords: totalWords,
             singleH: refLineH,
             fullH: rFull.height,
             fullW: rFull.width,
+            fullTop: rFull.top,
+            fullLeft: rFull.left,
+            fullRight: rFullRight,
+            justifiedWidth: justifiedLayoutW,
+            isBoxText: isBoxText,
             fontSize: fontSize,
             fullText: fullText,
             isJustified: isJustified,
@@ -342,7 +531,7 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
         $._smartHighlighter.log("scanParagraph EXCEPTION: " + eScan.toString());
         return null;
     } finally {
-        // Ø¶Ù…Ø§Ù† Ø§Ù„Ø­Ø°Ù Ø§Ù„ÙÙˆØ±ÙŠ Ù„Ù„Ø·Ø¨Ù‚Ø© Ø§Ù„Ù…Ø¤Ù‚ØªØ©
+        // ضمان الحذف الفوري للطبقة المؤقتة
         if (temp) {
             try {
                 temp.remove();

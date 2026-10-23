@@ -1,5 +1,5 @@
 /**
- * OPENBOX â€” Actions & Dispatcher Module
+ * OPENBOX — Actions & Dispatcher Module
  * Assembles parameter payloads and executes Smart Highlight and Phrase Highlight actions.
  */
 (function (window, document) {
@@ -95,8 +95,10 @@
             var holdTime = (HS.DOM && HS.DOM.phraseHoldTime) ? (HS.TimeEngine ? HS.TimeEngine.toSeconds(HS.DOM.phraseHoldTime.value) : (parseFloat(HS.DOM.phraseHoldTime.value) || 1.2)) : 1.2;
             var isSeq = (HS.DOM && HS.DOM.phraseSeqCheck) ? HS.DOM.phraseSeqCheck.checked : false;
 
+            var direction = (HS.DOM && HS.DOM.alignSelect) ? HS.DOM.alignSelect.value : "auto";
             var payload = {
                 phrases: phrases,
+                direction: direction,
                 color: col,
                 colorHex: hexCol,
                 style: style,

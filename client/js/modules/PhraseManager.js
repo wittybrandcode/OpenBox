@@ -1,5 +1,5 @@
 /**
- * OPENBOX â€” Phrase Manager Module
+ * OPENBOX — Phrase Manager Module
  * Interactive word tokens board, multi-selection, strict positional matching, and instant eraser.
  */
 (function (window, document) {
@@ -334,7 +334,7 @@
                     b.style.setProperty("--applied-bg", HS.Bridge.hexToRgbaCss(col, 0.28));
                     b.style.setProperty("--applied-border", HS.Bridge.hexToRgbaCss(col, 0.75));
                     b.style.setProperty("--applied-glow", HS.Bridge.hexToRgbaCss(col, 0.40));
-                    b.title = 'Highlighted: "' + (matchedPhrase.text || tokenObj.text) + '" â€” Click to erase from AE';
+                    b.title = 'Highlighted: "' + (matchedPhrase.text || tokenObj.text) + '" — Click to erase from AE';
 
                     // Ensure applied tokens are not counted in pending selection
                     var selPos = HS.State.selectedTokenIndices.indexOf(idx);
@@ -393,7 +393,7 @@
                     if (pRecentEl) {
                         pRecentEl.style.backgroundColor = savedPRecent;
                         pRecentEl.dataset.color = savedPRecent;
-                        pRecentEl.title = "Last Chosen Color: " + savedPRecent.toUpperCase() + " (Ø¢Ø®Ø± Ù„ÙˆÙ† ØªÙ… Ø§Ø®ØªÙŠØ§Ø±Ù‡)";
+                        pRecentEl.title = "Last Chosen Color: " + savedPRecent.toUpperCase() + " (آخر لون تم اختياره)";
                     }
                 }
             } catch (e) {}

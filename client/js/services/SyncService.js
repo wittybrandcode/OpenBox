@@ -1,5 +1,5 @@
-﻿/**
- * OPENBOX â€” Sync Service Module
+/**
+ * OPENBOX — Sync Service Module
  * Handles two-way live synchronization between After Effects layers and the extension panel.
  */
 (function (window, document) {
@@ -80,8 +80,11 @@
                         // Tokens board sync for Phrase Highlight tab (only if text was fetched)
                         if (typeof state.text === "string") {
                             if (HS.PhraseManager && HS.PhraseManager.renderBoard) {
+                                var prevRaw = HS.State.lastTokensRawText;
                                 HS.PhraseManager.renderBoard(state.text, state.layerName);
-                                HS.PhraseManager.syncAppliedPhrases();
+                                if (state.text === prevRaw && HS.PhraseManager.syncAppliedPhrases) {
+                                    HS.PhraseManager.syncAppliedPhrases();
+                                }
                             }
                         }
 

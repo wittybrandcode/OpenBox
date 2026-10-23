@@ -1,14 +1,14 @@
-﻿/**
+/**
  * OPENBOX - Host Engine
  * Module: TypewriterEngine.jsx
- * Version: 2.0.0 (Custom Typewriter Engine)
+ * Version: 2.1.0 (Custom Typewriter Engine + Non-Destructive Inspector)
  * 
  * Creates, detects, and synchronizes the dedicated OPENBOX Typewriter
  * animator on the text layer with discrete character jumps (Smoothness = 0)
  * and subpixel keyframe precision.
  */
 
-// ÙØ­Øµ ÙˆØ¬ÙˆØ¯ Text Animator Ù…Ø³Ø¨Ù‚ Ø¹Ù„Ù‰ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ Ø¨Ù…ÙØ§ØªÙŠØ­ Range Selector (Start/End)
+// فحص وجود Text Animator مسبق على طبقة النص بمفاتيح Range Selector (Start/End)
 $._smartHighlighter.detectTextAnimator = function (textLayer) {
     try {
         var textProp = textLayer.property("ADBE Text Properties");
@@ -24,7 +24,7 @@ $._smartHighlighter.detectTextAnimator = function (textLayer) {
         for (var i = 1; i <= animators.numProperties; i++) {
             var anim = animators.property(i);
             var aName = anim.name || "";
-            // ØªØ¬Ø§Ù‡Ù„ Ø£Ù†ÙŠÙ…ÙŠØªÙˆØ± Ø§Ù„Ø¢Ù„Ø© Ø§Ù„ÙƒØ§ØªØ¨Ø© Ø§Ù„ØªØ§Ø¨Ø¹ Ù„Ù„Ø¥Ø¶Ø§ÙØ© Ù„Ù…Ù†Ø¹ ØªØ±Ø§ÙƒÙ… Ø§Ù„Ù…Ø¯Ø© Ø¨Ø´ÙƒÙ„ Ø£Ø³ÙŠ
+            // تجاهل أنيميتور الآلة الكاتبة التابع للإضافة لمنع تراكم المدة بشكل أسي
             if (aName === animName || aName === "Typewriter Sync" || aName === "Typewriter") {
                 continue;
             }
@@ -32,7 +32,7 @@ $._smartHighlighter.detectTextAnimator = function (textLayer) {
             var selectors = anim.property("ADBE Text Selectors");
             if (!selectors || selectors.numProperties === 0) continue;
 
-            // Ù†ÙØ­Øµ ÙÙ‚Ø· Ø§Ù„Ù…Ø­Ø¯Ø¯ Ø§Ù„Ø£ÙˆÙ„ (Intro selector) Ù„ØªØ¬Ù†Ø¨ Ù‚Ø±Ø§Ø¡Ø© Ù…ÙØ§ØªÙŠØ­ Ø§Ù„Ø®Ø±ÙˆØ¬ ÙƒÙ…Ø¯Ø© Ø­Ø±ÙƒØ© Ø§Ù„Ø¯Ø®ÙˆÙ„
+            // نفحص فقط المحدد الأول (Intro selector) لتجنب قراءة مفاتيح الخروج كمدة حركة الدخول
             var sel = selectors.property(1);
             if (!sel) continue;
 
@@ -65,8 +65,8 @@ $._smartHighlighter.detectTextAnimator = function (textLayer) {
     return null;
 };
 
-// Ø¥Ù†Ø´Ø§Ø¡ Ø£Ùˆ ØªØ­Ø¯ÙŠØ« ØªØ£Ø«ÙŠØ± Typewriter Ø£ØµÙ„ÙŠ Ø¹Ù„Ù‰ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ Ù…Ø¹ Ø¯Ø¹Ù… ÙƒØ§Ù…Ù„ Ù„Ø­Ø±ÙƒØªÙŠ Ø§Ù„Ø¯Ø®ÙˆÙ„ ÙˆØ§Ù„Ø®Ø±ÙˆØ¬ (Intro & Outro)
-// ÙŠØ¯Ø¹Ù… Ù†Ù…Ø·ÙŠÙ†: Ø§Ù„Ù†Ù…Ø· Ø§Ù„Ù…ØªØ³Ù„Ø³Ù„ (Sequential) ÙˆØ§Ù„Ù†Ù…Ø· Ø§Ù„Ù…ØªÙˆØ§Ø²ÙŠ Ù„Ù„Ø£Ø³Ø·Ø± (Parallel Lines) Ù…Ø¹ Ø«Ø¨Ø§Øª Ø§Ù„Ø³Ø±Ø¹Ø© Ø£Ùˆ Ø§Ù„Ø§Ù†ØªÙ‡Ø§Ø¡ Ø§Ù„Ù…ØªØ²Ø§Ù…Ù†
+// إنشاء أو تحديث تأثير Typewriter أصلي على طبقة النص مع دعم كامل لحركتي الدخول والخروج (Intro & Outro)
+// يدعم نمطين: النمط المتسلسل (Sequential) والنمط المتوازي للأسطر (Parallel Lines) مع ثبات السرعة أو الانتهاء المتزامن
 $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, styleType, revealUnit, hasOutro, tOutStart, tOutEnd, outroOrder, useMarkers, typewriterMode, speedMode, linesData, totalTextChars, totalWords) {
     try {
         var textProp = textLayer.property("ADBE Text Properties");
@@ -76,7 +76,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
 
         var animName = $._smartHighlighter.TYPEWRITER_ANIM_NAME || "Typewriter Sync";
 
-        // ØªØ­Ø¯ÙŠØ¯ ÙˆØ­Ø¯Ø© Ø§Ù„ØªÙ‚Ø³ÙŠÙ… (Based On): 1 = Characters, 3 = Words, 4 = Lines
+        // تحديد وحدة التقسيم (Based On): 1 = Characters, 3 = Words, 4 = Lines
         var unitVal = 1;
         if (revealUnit === "words") {
             unitVal = 3;
@@ -84,10 +84,10 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
             unitVal = 4;
         }
 
-        // 1. ØªÙ†Ø¸ÙŠÙ Ø£ÙŠ Ø£Ù†ÙŠÙ…ÙŠØªÙˆØ± Ø³Ø§Ø¨Ù‚ Ù„Ø¶Ù…Ø§Ù† Ø¨Ù†Ø§Ø¡ Ø¬Ø¯ÙŠØ¯ ÙˆÙ†Ø¸ÙŠÙ ÙˆØ®Ø§Ù„Ù Ù…Ù† Ø§Ù„Ø£Ø®Ø·Ø§Ø¡ Ø§Ù„ØªØ±Ø§ÙƒÙ…ÙŠØ©
+        // 1. تنظيف أي أنيميتور سابق لضمان بناء جديد ونظيف وخالٍ من الأخطاء التراكمية
         $._smartHighlighter.removeTextTypewriter(textLayer);
 
-        // 2. Ø¥Ù†Ø´Ø§Ø¡ Ø£Ù†ÙŠÙ…ÙŠØªÙˆØ± Ø¬Ø¯ÙŠØ¯ Ø¨Ø§Ø³Ù… Typewriter Sync
+        // 2. إنشاء أنيميتور جديد باسم Typewriter Sync
         var anim = animators.addProperty("ADBE Text Animator");
         anim.name = animName;
         var selectors = anim.property("ADBE Text Selectors");
@@ -98,7 +98,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
 
         if (isParallel) {
             // ============================================================
-            // Ø§Ù„Ù†Ù…Ø· Ø§Ù„Ù…ØªÙˆØ§Ø²ÙŠ: Ø¥Ù†Ø´Ø§Ø¡ Range Selectors Ù…Ø®ØµØµØ© Ù„ÙƒÙ„ Ø³Ø·Ø± ØªØ¨Ø¯Ø£ Ù…Ø¹Ø§Ù‹ Ø¨Ø§Ù„ØªÙˆØ§Ø²ÙŠ
+            // النمط المتوازي: إنشاء Range Selectors مخصصة لكل سطر تبدأ معاً بالتوازي
             // ============================================================
             var maxUnits = 1;
             for (var mi = 0; mi < linesData.length; mi++) {
@@ -137,7 +137,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
                 pEnd = Math.max(0, Math.min(100, pEnd));
                 if (pEnd <= pStart) pEnd = Math.min(100, pStart + 1);
 
-                // Ø£. Ù…Ø­Ø¯Ø¯ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ù„Ù„Ø³Ø·Ø± (Intro Selector for Line i)
+                // أ. محدد الدخول للسطر (Intro Selector for Line i)
                 var inSelLine = selectors.addProperty("ADBE Text Selector");
                 try { inSelLine.name = "Range Selector Line " + (i + 1); } catch(eNInL) {}
 
@@ -193,7 +193,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
                     }
                 }
 
-                // Ø¨. Ù…Ø­Ø¯Ø¯ Ø§Ù„Ø®Ø±ÙˆØ¬ Ù„Ù„Ø³Ø·Ø± (Outro Selector for Line i)
+                // ب. محدد الخروج للسطر (Outro Selector for Line i)
                 if (hasOutro === true) {
                     if (typeof tOutStart !== "number") tOutStart = tEnd + 1.0;
                     var totalOutroDur = (typeof tOutEnd === "number" && tOutEnd > tOutStart) ? (tOutEnd - tOutStart) : totalIntroDur;
@@ -298,7 +298,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
             }
         } else {
             // ============================================================
-            // Ø§Ù„Ù†Ù…Ø· Ø§Ù„Ù…ØªØ³Ù„Ø³Ù„ Ø§Ù„ØªÙ‚Ù„ÙŠØ¯ÙŠ: Ù…Ø­Ø¯Ø¯ ÙˆØ§Ø­Ø¯ Ø´Ø§Ù…Ù„ ÙŠØªØ¯ÙÙ‚ Ù…Ù† Ø§Ù„Ø¨Ø¯Ø§ÙŠØ© Ø­ØªÙ‰ Ø§Ù„Ù†Ù‡Ø§ÙŠØ©
+            // النمط المتسلسل التقليدي: محدد واحد شامل يتدفق من البداية حتى النهاية
             // ============================================================
             var inSel = selectors.addProperty("ADBE Text Selector");
             try { inSel.name = "Range Selector Intro"; } catch(eNameIn) {}
@@ -439,7 +439,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
             }
         }
 
-        // 5. Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ø®ØµØ§Ø¦Øµ Ø§Ù„Ø¨ØµØ±ÙŠØ© (ADBE Text Opacity = 0)
+        // 5. إضافة الخصائص البصرية (ADBE Text Opacity = 0)
         var props = anim.property("ADBE Text Animator Properties");
         var op = null;
         try { op = props.addProperty("ADBE Text Opacity"); } catch(eAddOp) {}
@@ -464,7 +464,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
     return false;
 };
 
-// Ø¥Ø²Ø§Ù„Ø© Ø£Ù†ÙŠÙ…ÙŠØªÙˆØ± Ø§Ù„Ø¢Ù„Ø© Ø§Ù„ÙƒØ§ØªØ¨Ø© Ø¹Ù†Ø¯ Ù…Ø³Ø­ Ø§Ù„Ù‡Ø§ÙŠÙ„Ø§ÙŠØª
+// إزالة أنيميتور الآلة الكاتبة عند مسح الهايلايت
 $._smartHighlighter.removeTextTypewriter = function (textLayer) {
     try {
         var textProp = textLayer.property("ADBE Text Properties");
@@ -480,6 +480,133 @@ $._smartHighlighter.removeTextTypewriter = function (textLayer) {
             }
         }
     } catch (eAnimDel) {}
+};
+
+
+// فحص غير تدميري شامل لأنيمايتور الآلة الكاتبة الحالي على طبقة النص (لمزامنة تظليل العبارات دون المساس بحركة النص)
+$._smartHighlighter.inspectActiveTypewriter = function (textLayer) {
+    try {
+        var textProp = textLayer.property("ADBE Text Properties");
+        if (!textProp) return null;
+        var animators = textProp.property("ADBE Text Animators");
+        if (!animators || animators.numProperties === 0) return null;
+
+        var animName = $._smartHighlighter.TYPEWRITER_ANIM_NAME || "Typewriter Sync";
+        var targetAnim = null;
+
+        for (var i = 1; i <= animators.numProperties; i++) {
+            var cand = animators.property(i);
+            if (!cand) continue;
+            var cName = cand.name || "";
+            if (cName === animName || cName === "Typewriter Sync" || cName === "Typewriter") {
+                targetAnim = cand;
+                break;
+            }
+        }
+        if (!targetAnim) {
+            targetAnim = animators.property(1);
+        }
+        if (!targetAnim) return null;
+
+        var selectors = targetAnim.property("ADBE Text Selectors");
+        if (!selectors || selectors.numProperties === 0) return null;
+
+        var isParallel = false;
+        var hasOutro = false;
+        var basedOnUnit = 1; // 1 = chars, 3 = words, 4 = lines
+        var minStart = null;
+        var maxEnd = null;
+        var outStart = null;
+        var outEnd = null;
+        var lineTimings = {};
+
+        for (var s = 1; s <= selectors.numProperties; s++) {
+            var sel = selectors.property(s);
+            if (!sel) continue;
+            var sName = sel.name || "";
+            var isOutroSel = (sName.indexOf("Outro") !== -1);
+            var lineMatch = sName.match(/Line\s+(\d+)/i);
+            if (lineMatch && !isOutroSel) {
+                isParallel = true;
+            }
+            if (isOutroSel) {
+                hasOutro = true;
+            }
+
+            if (s === 1) {
+                try {
+                    var adv = sel.property("ADBE Text Range Advanced") || sel.property("Advanced");
+                    if (adv) {
+                        var bProp = adv.property("ADBE Text Range Type2");
+                        if (bProp) basedOnUnit = bProp.value;
+                    }
+                } catch (eB) {}
+            }
+
+            var checkProps = ["ADBE Text Percent Start", "ADBE Text Percent End", "Start", "End"];
+            for (var p = 0; p < checkProps.length; p++) {
+                try {
+                    var pr = sel.property(checkProps[p]);
+                    if (pr && pr.numKeys >= 2) {
+                        var k1 = pr.keyTime(1);
+                        var k2 = pr.keyTime(pr.numKeys);
+                        if (isOutroSel) {
+                            if (outStart === null || k1 < outStart) outStart = k1;
+                            if (outEnd === null || k2 > outEnd) outEnd = k2;
+                        } else {
+                            if (minStart === null || k1 < minStart) minStart = k1;
+                            if (maxEnd === null || k2 > maxEnd) maxEnd = k2;
+                            if (lineMatch && lineMatch[1]) {
+                                var lNum = parseInt(lineMatch[1], 10);
+                                lineTimings[lNum] = { startTime: k1, endTime: k2 };
+                            }
+                        }
+                    }
+                } catch (ePr) {}
+            }
+        }
+
+        // فحص الماركرز على طبقة النص إذا كانت مفعلة
+        try {
+            if (textLayer.marker && textLayer.marker.numKeys > 0) {
+                var mInS = null, mInE = null, mOutS = null, mOutE = null;
+                for (var mk = 1; mk <= textLayer.marker.numKeys; mk++) {
+                    var mComm = textLayer.marker.key(mk).comment;
+                    var mTime = textLayer.marker.key(mk).time;
+                    if (mComm === "HL_IN_START") mInS = mTime;
+                    else if (mComm === "HL_IN_END") mInE = mTime;
+                    else if (mComm === "HL_OUT_START") mOutS = mTime;
+                    else if (mComm === "HL_OUT_END") mOutE = mTime;
+                }
+                if (mInS !== null && mInE !== null && mInE > mInS) {
+                    minStart = mInS;
+                    maxEnd = mInE;
+                }
+                if (mOutS !== null && mOutE !== null && mOutE > mOutS) {
+                    hasOutro = true;
+                    outStart = mOutS;
+                    outEnd = mOutE;
+                }
+            }
+        } catch (eMk) {}
+
+        var hasValidKeys = (minStart !== null && maxEnd !== null && maxEnd > minStart);
+        return {
+            hasAnimator: true,
+            hasKeys: hasValidKeys,
+            isParallel: isParallel,
+            hasOutro: hasOutro,
+            basedOnUnit: basedOnUnit,
+            startTime: hasValidKeys ? minStart : 0,
+            endTime: hasValidKeys ? maxEnd : 1.2,
+            outStartTime: outStart,
+            outEndTime: outEnd,
+            lineTimings: lineTimings
+        };
+    } catch (eInsp) {
+        $._smartHighlighter.log("inspectActiveTypewriter error: " + eInsp.toString());
+    }
+    return null;
 };
 
 var SMART_HL_TYPEWRITER_LOADED = true;

@@ -1,7 +1,7 @@
 /**
  * OPENBOX - Host Engine
  * Module: Recipes.jsx
- * Version: 2.1.0 (Modular Architecture & Recipe System)
+ * Version: 2.3.0 (Parallel Multi-Line Sync, Time-Invariant Bounds & RTL/LTR Word Engine)
  * 
  * Extensible Strategy Pattern for Highlight Styles & Motions:
  * Decouples geometric measurements from visual representation and animation curves.
@@ -51,9 +51,9 @@ $._smartHighlighter.recipes = {
     }
 };
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════
 // 1. BUILT-IN MOTION STRATEGIES
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════
 
 // A. TYPEWRITER MOTION STRATEGY
 $._smartHighlighter.recipes.registerMotion("typewriter", {
@@ -65,42 +65,77 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
     },
 
     getProgressExpression: function (ctx) {
+        var box = ctx.box || {};
+        var lineNum = ((typeof box.lineIndex === "number") ? box.lineIndex : (ctx.index || 0)) + 1;
+        var c1 = (ctx.timing && typeof ctx.timing.cStartPct === "number") ? ctx.timing.cStartPct : 0;
+        var c2 = (ctx.timing && typeof ctx.timing.cEndPct === "number") ? ctx.timing.cEndPct : 100;
+        var w1 = (ctx.timing && typeof ctx.timing.wStartPct === "number") ? ctx.timing.wStartPct : c1;
+        var w2 = (ctx.timing && typeof ctx.timing.wEndPct === "number") ? ctx.timing.wEndPct : c2;
+        var l1 = (ctx.timing && typeof ctx.timing.lStartPct === "number") ? ctx.timing.lStartPct : c1;
+        var l2 = (ctx.timing && typeof ctx.timing.lEndPct === "number") ? ctx.timing.lEndPct : c2;
+
         return (
             'var res = value;\n' +
             'var pLayer = hasParent ? parent : null;\n' +
-            'if (!pLayer) value;\n' +
-            'var anim = null;\n' +
-            'try { anim = pLayer.text.animator("Typewriter Sync"); } catch(e) {}\n' +
-            'if (!anim) { try { anim = pLayer.text.animator("Typewriter"); } catch(e2) {} }\n' +
-            'if (anim && anim.numProperties >= 1) {\n' +
-            '    try {\n' +
-            '        var sels = anim.property("ADBE Text Selectors");\n' +
-            '        var sel = sels.property(1);\n' +
-            '        var pVal = 0;\n' +
-            '        var pStart = null; try { pStart = sel.property("ADBE Text Percent Start"); } catch(e1) { try { pStart = sel.property("Start"); } catch(e11) {} }\n' +
-            '        var pEnd = null; try { pEnd = sel.property("ADBE Text Percent End"); } catch(e2) { try { pEnd = sel.property("End"); } catch(e22) {} }\n' +
-            '        if (pStart && pStart.numKeys > 0) { pVal = pStart.value; }\n' +
-            '        else if (pEnd && pEnd.numKeys > 0) { pVal = pEnd.value; }\n' +
-            '        else if (pStart) { pVal = pStart.value; }\n' +
-            '        else if (pEnd) { pVal = pEnd.value; }\n' +
-            '        var c1 = ' + ctx.timing.cStartPct.toFixed(4) + ';\n' +
-            '        var c2 = ' + ctx.timing.cEndPct.toFixed(4) + ';\n' +
-            '        res = (pVal <= c1) ? 0 : ((pVal >= c2) ? 100 : linear(pVal, c1, c2, 0, 100));\n' +
-            '        if (sels.numProperties >= 2) {\n' +
-            '            var outSel = sels.property(2);\n' +
-            '            var oStart = null; try { oStart = outSel.property("ADBE Text Percent Start"); } catch(e3) {}\n' +
-            '            var oEnd = null; try { oEnd = outSel.property("ADBE Text Percent End"); } catch(e4) {}\n' +
-            '            if (oStart && oStart.numKeys > 0) {\n' +
-            '                var oVal = oStart.value;\n' +
-            '                var outPct = (oVal >= c2) ? 100 : ((oVal <= c1) ? 0 : linear(oVal, c1, c2, 0, 100));\n' +
-            '                res = Math.min(res, outPct);\n' +
-            '            } else if (oEnd && oEnd.numKeys > 0) {\n' +
-            '                var oVal2 = oEnd.value;\n' +
-            '                var outPct2 = (oVal2 <= c1) ? 100 : ((oVal2 >= c2) ? 0 : linear(oVal2, c1, c2, 100, 0));\n' +
-            '                res = Math.min(res, outPct2);\n' +
+            'if (pLayer) {\n' +
+            '    var anim = null;\n' +
+            '    try { anim = pLayer.text.animator("Typewriter Sync"); } catch(e) {}\n' +
+            '    if (!anim) { try { anim = pLayer.text.animator("Typewriter"); } catch(e2) {} }\n' +
+            '    if (anim && anim.numProperties >= 1) {\n' +
+            '        try {\n' +
+            '            var sels = anim.property("ADBE Text Selectors");\n' +
+            '            if (sels && sels.numProperties >= 1) {\n' +
+            '                var lineNum = ' + lineNum + ';\n' +
+            '                var sel = null;\n' +
+            '                try { sel = sels.property("Range Selector Line " + lineNum); } catch(eSL) {}\n' +
+            '                if (!sel) { try { sel = sels.property("Range Selector Intro"); } catch(eSI) {} }\n' +
+            '                if (!sel) { try { sel = sels.property(1); } catch(eS1) {} }\n' +
+            '                if (sel) {\n' +
+            '                    var unitType = 1;\n' +
+            '                    try {\n' +
+            '                        var adv = sel.property("ADBE Text Range Advanced");\n' +
+            '                        if (!adv) adv = sel.property("Advanced");\n' +
+            '                        if (adv) {\n' +
+            '                            var bProp = adv.property("ADBE Text Range Type2");\n' +
+            '                            if (bProp) unitType = bProp.value;\n' +
+            '                        }\n' +
+            '                    } catch(eUT) {}\n' +
+            '                    var c1 = (unitType == 3) ? ' + w1.toFixed(4) + ' : ((unitType == 4) ? ' + l1.toFixed(4) + ' : ' + c1.toFixed(4) + ');\n' +
+            '                    var c2 = (unitType == 3) ? ' + w2.toFixed(4) + ' : ((unitType == 4) ? ' + l2.toFixed(4) + ' : ' + c2.toFixed(4) + ');\n' +
+            '                    var pVal = 0;\n' +
+            '                    var pStart = null; try { pStart = sel.property("ADBE Text Percent Start"); } catch(e1) { try { pStart = sel.property("Start"); } catch(e11) {} }\n' +
+            '                    var pEnd = null; try { pEnd = sel.property("ADBE Text Percent End"); } catch(e2) { try { pEnd = sel.property("End"); } catch(e22) {} }\n' +
+            '                    if (pStart && (pStart.numKeys > 0 || pStart.expressionEnabled)) { pVal = pStart.value; }\n' +
+            '                    else if (pEnd && (pEnd.numKeys > 0 || pEnd.expressionEnabled)) { pVal = pEnd.value; }\n' +
+            '                    else if (pStart) { pVal = pStart.value; }\n' +
+            '                    else if (pEnd) { pVal = pEnd.value; }\n' +
+            '                    res = (pVal <= c1) ? 0 : ((pVal >= c2) ? 100 : linear(pVal, c1, c2, 0, 100));\n' +
+            '                    var outSel = null;\n' +
+            '                    try { outSel = sels.property("Range Selector Outro Line " + lineNum); } catch(eOL) {}\n' +
+            '                    if (!outSel) { try { outSel = sels.property("Range Selector Outro"); } catch(eOI) {} }\n' +
+            '                    if (!outSel && sels.numProperties == 2) {\n' +
+            '                        try {\n' +
+            '                            var cand2 = sels.property(2);\n' +
+            '                            if (cand2 && cand2.name.indexOf("Line") == -1) outSel = cand2;\n' +
+            '                        } catch(eO2) {}\n' +
+            '                    }\n' +
+            '                    if (outSel) {\n' +
+            '                        var oStart = null; try { oStart = outSel.property("ADBE Text Percent Start"); } catch(e3) { try { oStart = outSel.property("Start"); } catch(e33) {} }\n' +
+            '                        var oEnd = null; try { oEnd = outSel.property("ADBE Text Percent End"); } catch(e4) { try { oEnd = outSel.property("End"); } catch(e44) {} }\n' +
+            '                        if (oStart && (oStart.numKeys > 0 || oStart.expressionEnabled)) {\n' +
+            '                            var oVal = oStart.value;\n' +
+            '                            var outPct = (oVal >= c2) ? 100 : ((oVal <= c1) ? 0 : linear(oVal, c1, c2, 0, 100));\n' +
+            '                            res = Math.min(res, outPct);\n' +
+            '                        } else if (oEnd && (oEnd.numKeys > 0 || oEnd.expressionEnabled)) {\n' +
+            '                            var oVal2 = oEnd.value;\n' +
+            '                            var outPct2 = (oVal2 <= c1) ? 100 : ((oVal2 >= c2) ? 0 : linear(oVal2, c1, c2, 100, 0));\n' +
+            '                            res = Math.min(res, outPct2);\n' +
+            '                        }\n' +
+            '                    }\n' +
+            '                }\n' +
             '            }\n' +
-            '        }\n' +
-            '    } catch(err) {}\n' +
+            '        } catch(err) {}\n' +
+            '    }\n' +
             '}\n' +
             'res;'
         );
@@ -110,6 +145,8 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
         var revealUnit = ctx.timing.revealUnit || "chars";
         var box = ctx.box;
         var boxOutroOrder = ctx.boxOutroOrder || "first";
+        var targetBoxWStr = box.width.toFixed(2);
+        var lineNum = ((typeof box.lineIndex === "number") ? box.lineIndex : (ctx.index || 0)) + 1;
 
         if (revealUnit === "words" && box.wOffsets && box.wOffsets.length > 0) {
             var wOffsetsStr = "[" + box.wOffsets.join(",") + "]";
@@ -117,24 +154,26 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
                 'var wOffsets = ' + wOffsetsStr + ';\n' +
                 'var numWords = wOffsets.length;\n' +
                 'var totalWordW = (numWords > 0) ? wOffsets[numWords - 1] : 0;\n' +
+                'var targetBaseW = ' + targetBoxWStr + ';\n' +
+                'var wNorm = (totalWordW > 0) ? (targetBaseW / totalWordW) : 1;\n' +
                 'var curTextW = 0;\n' +
                 'var startOffset = 0;\n' +
                 'if (p > 0 && numWords > 0) {\n' +
                 '    var visWords = Math.min(numWords, Math.max(0, Math.floor(p * numWords + 0.5)));\n' +
                 '    if (typeof isForwardOutro !== "undefined" && isForwardOutro) {\n' +
                 '        if (visWords >= numWords) {\n' +
-                '            curTextW = totalWordW;\n' +
+                '            curTextW = targetBaseW;\n' +
                 '            startOffset = 0;\n' +
                 '        } else if (visWords > 0) {\n' +
-                '            var hiddenW = wOffsets[numWords - visWords - 1];\n' +
-                '            curTextW = totalWordW - hiddenW;\n' +
+                '            var hiddenW = wOffsets[numWords - visWords - 1] * wNorm;\n' +
+                '            curTextW = targetBaseW - hiddenW;\n' +
                 '            startOffset = hiddenW;\n' +
                 '        } else {\n' +
                 '            curTextW = 0;\n' +
-                '            startOffset = totalWordW;\n' +
+                '            startOffset = targetBaseW;\n' +
                 '        }\n' +
                 '    } else {\n' +
-                '        curTextW = (visWords > 0) ? wOffsets[visWords - 1] : 0;\n' +
+                '        curTextW = (visWords > 0) ? (wOffsets[visWords - 1] * wNorm) : 0;\n' +
                 '        startOffset = 0;\n' +
                 '    }\n' +
                 '}\n' +
@@ -142,7 +181,7 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
             );
         } else if (revealUnit === "lines") {
             return (
-                'var baseW = ' + box.width.toFixed(2) + ' * fontRatio;\n' +
+                'var baseW = ' + targetBoxWStr + ' * fontRatio;\n' +
                 'var startOffset = 0;\n' +
                 'var curW = (p >= 0.5) ? (baseW + pX * 2) : 0;\n'
             );
@@ -152,6 +191,8 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
                 'var cOffsets = ' + cOffsetsStr + ';\n' +
                 'var numChars = cOffsets.length;\n' +
                 'var totalCharW = (numChars > 0) ? cOffsets[numChars - 1] : 0;\n' +
+                'var targetBaseW = ' + targetBoxWStr + ';\n' +
+                'var cNorm = (totalCharW > 0) ? (targetBaseW / totalCharW) : 1;\n' +
                 'var curTextW = 0;\n' +
                 'var startOffset = 0;\n' +
                 'if (p > 0 && numChars > 0) {\n' +
@@ -161,40 +202,46 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
                 '        try { anim = pLayer.text.animator("Typewriter Sync"); } catch(e01) {}\n' +
                 '        if (!anim) { try { anim = pLayer.text.animator("Typewriter"); } catch(e02) {} }\n' +
                 '        if (anim) {\n' +
-                '            var sel = anim.property("ADBE Text Selectors").property(1);\n' +
-                '            var adv = sel.property("ADBE Text Range Advanced");\n' +
-                '            if (!adv) adv = sel.property("Advanced");\n' +
-                '            if (adv) {\n' +
-                '                var sm = adv.property("ADBE Text Range Smoothness");\n' +
-                '                if (!sm) sm = adv.property("Smoothness");\n' +
-                '                if (sm) smVal = sm.value;\n' +
+                '            var sels = anim.property("ADBE Text Selectors");\n' +
+                '            var sel = null;\n' +
+                '            try { sel = sels.property("Range Selector Line ' + lineNum + '"); } catch(eSL) {}\n' +
+                '            if (!sel) { try { sel = sels.property(1); } catch(eS1) {} }\n' +
+                '            if (sel) {\n' +
+                '                var adv = sel.property("ADBE Text Range Advanced");\n' +
+                '                if (!adv) adv = sel.property("Advanced");\n' +
+                '                if (adv) {\n' +
+                '                    var sm = adv.property("ADBE Text Range Smoothness");\n' +
+                '                    if (!sm) sm = adv.property("ADBE Text Selector Smoothness");\n' +
+                '                    if (!sm) sm = adv.property("Smoothness");\n' +
+                '                    if (sm) smVal = sm.value;\n' +
+                '                }\n' +
                 '            }\n' +
                 '        }\n' +
                 '    } catch(eSm) {}\n' +
                 '    if (typeof isForwardOutro !== "undefined" && isForwardOutro) {\n' +
                 '        var visChars = Math.min(numChars, Math.max(0, Math.floor(p * numChars + 0.5)));\n' +
                 '        if (visChars >= numChars) {\n' +
-                '            curTextW = totalCharW;\n' +
+                '            curTextW = targetBaseW;\n' +
                 '            startOffset = 0;\n' +
                 '        } else if (visChars > 0) {\n' +
-                '            var hiddenW = cOffsets[numChars - visChars - 1];\n' +
-                '            curTextW = totalCharW - hiddenW;\n' +
+                '            var hiddenW = cOffsets[numChars - visChars - 1] * cNorm;\n' +
+                '            curTextW = targetBaseW - hiddenW;\n' +
                 '            startOffset = hiddenW;\n' +
                 '        } else {\n' +
                 '            curTextW = 0;\n' +
-                '            startOffset = totalCharW;\n' +
+                '            startOffset = targetBaseW;\n' +
                 '        }\n' +
                 '    } else if (smVal > 0) {\n' +
                 '        var cFloat = p * numChars;\n' +
                 '        var cIdx = Math.min(numChars - 1, Math.floor(cFloat));\n' +
-                '        var prevW = (cIdx > 0) ? cOffsets[cIdx - 1] : 0;\n' +
-                '        var nextW = cOffsets[cIdx];\n' +
+                '        var prevW = ((cIdx > 0) ? cOffsets[cIdx - 1] : 0) * cNorm;\n' +
+                '        var nextW = cOffsets[cIdx] * cNorm;\n' +
                 '        var frac = cFloat - cIdx;\n' +
                 '        curTextW = prevW + frac * (nextW - prevW);\n' +
                 '        startOffset = 0;\n' +
                 '    } else {\n' +
                 '        var visChars = Math.min(numChars, Math.max(0, Math.floor(p * numChars + 0.5)));\n' +
-                '        curTextW = (visChars > 0) ? cOffsets[visChars - 1] : 0;\n' +
+                '        curTextW = (visChars > 0) ? (cOffsets[visChars - 1] * cNorm) : 0;\n' +
                 '        startOffset = 0;\n' +
                 '    }\n' +
                 '}\n' +
@@ -203,7 +250,7 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
         }
 
         return (
-            'var baseW = ' + box.width.toFixed(2) + ' * fontRatio;\n' +
+            'var baseW = ' + targetBoxWStr + ' * fontRatio;\n' +
             'var startOffset = (typeof isForwardOutro !== "undefined" && isForwardOutro) ? (baseW * (1 - p)) : 0;\n' +
             'var curW = (p <= 0) ? 0 : (baseW * p + pX * 2);\n'
         );
@@ -341,20 +388,25 @@ $._smartHighlighter.recipes.registerMotion("snap", {
     }
 });
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════
 // 2. BUILT-IN VISUAL STYLE STRATEGIES
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ═══════════════════════════════════════════════════════════════════
 
 // Base Helper for Box Positions
 var getStandardPositionSnippet = function (ctx) {
     var box = ctx.box;
-    var totalLines = (typeof ctx.totalLines === "number" && ctx.totalLines > 0) ? ctx.totalLines : 1;
+    var totalSlots = (typeof ctx.totalSlots === "number" && ctx.totalSlots > 0) ? ctx.totalSlots : ((typeof box.totalSlots === "number" && box.totalSlots > 0) ? box.totalSlots : ((typeof ctx.totalLines === "number" && ctx.totalLines > 0) ? ctx.totalLines : 1));
+    var slotIndex = (typeof ctx.slotIndex === "number") ? ctx.slotIndex : ((typeof box.slotIndex === "number") ? box.slotIndex : ((typeof box.lineIndex === "number") ? box.lineIndex : 0));
     var isCenter = ctx.isCenter;
     var boxOutroOrder = ctx.boxOutroOrder || "first";
     var isForwardOutro = (boxOutroOrder === "first");
 
     var safeBaseFS = Math.max(1, (typeof ctx.baseFS === "number" && ctx.baseFS > 0) ? ctx.baseFS : 1);
     var safeBaseTotalH = Math.max(1, (typeof ctx.baseTotalH === "number" && ctx.baseTotalH > 0) ? ctx.baseTotalH : 1);
+    var safeBaseTotalW = (typeof ctx.baseTotalW === "number" && ctx.baseTotalW > 0) ? ctx.baseTotalW : ((typeof box.lineWidth === "number" && box.lineWidth > 0) ? box.lineWidth : 100);
+    var safeBaseLeft = (typeof ctx.baseFullLeft === "number") ? ctx.baseFullLeft : 0;
+    var safeBaseTop = (typeof ctx.baseFullTop === "number") ? ctx.baseFullTop : 0;
+    var hasStaticBounds = (typeof ctx.baseFullLeft === "number" && typeof ctx.baseTotalW === "number" && ctx.baseTotalW > 0);
 
     var posSnippet = 
         'var pLayer = hasParent ? parent : null;\n' +
@@ -364,18 +416,29 @@ var getStandardPositionSnippet = function (ctx) {
         '    var useM = 0; try { useM = effect("Use Master Controls")(1); } catch(eM) {}\n' +
         '    var pX = (useM == 1 && pLayer && pLayer.effect("Master Padding X")) ? pLayer.effect("Master Padding X")(1) : effect("Local Padding X")(1);\n' +
         '    var offY = (useM == 1 && pLayer && pLayer.effect("Master Offset Y")) ? pLayer.effect("Master Offset Y")(1) : effect("Local Offset Y")(1);\n\n' +
-        '    var r = pLayer.sourceRectAtTime();\n' +
         '    var baseFS = ' + safeBaseFS.toFixed(2) + ';\n' +
         '    var curFS = baseFS;\n' +
-        '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (r.height / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
-        '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n' +
+        '    var r = pLayer.sourceRectAtTime(0, false);\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime(time, false); }\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime((pLayer.inPoint + pLayer.outPoint) * 0.5, false); }\n' +
+        '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (Math.max(1, r.height) / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
+        '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n';
+
+    if (hasStaticBounds) {
+        posSnippet +=
+            '    if (r.width < ' + (safeBaseTotalW * 0.65).toFixed(2) + ' * fontRatio) {\n' +
+            '        r = { left: ' + safeBaseLeft.toFixed(2) + ' * fontRatio, top: ' + safeBaseTop.toFixed(2) + ' * fontRatio, width: ' + safeBaseTotalW.toFixed(2) + ' * fontRatio, height: ' + safeBaseTotalH.toFixed(2) + ' * fontRatio };\n' +
+            '    }\n';
+    }
+
+    posSnippet +=
         '    var p = 1; try { p = clamp(effect("Progress")(1) / 100, 0, 1); } catch(eP) {}\n' +
         '    var isOutro = false;\n' +
         '    try {\n' +
         '        var pProg = null; try { pProg = effect("Progress")(1); } catch(ePP) {}\n' +
         '        if (pProg && pProg.velocity < -0.001) {\n' +
         '            isOutro = true;\n' +
-        '        } else if (pProg.numKeys >= 4 && time >= pProg.key(3).time) {\n' +
+        '        } else if (pProg && pProg.numKeys >= 4 && time >= pProg.key(3).time) {\n' +
         '            isOutro = true;\n' +
         '        }\n' +
         '        if (!isOutro && pLayer && pLayer.marker && pLayer.marker.numKeys > 0) {\n' +
@@ -389,19 +452,20 @@ var getStandardPositionSnippet = function (ctx) {
         '    var isForwardOutro = isOutro && ' + (isForwardOutro ? 'true' : 'false') + ';\n' +
         '    var curX, curY;\n' +
         '    var dynH = ' + box.height.toFixed(2) + ' * fontRatio;\n' +
-        '    var linePitch = (' + totalLines + ' > 1) ? Math.max(0, (r.height - dynH) / (' + (totalLines - 1) + ')) : 0;\n';
+        '    // حساب المسافة الرأسية بالاعتماد على totalSlots لمنع أي انزياح أو صندوق وهمي عند الأسطر الفارغة\n' +
+        '    var linePitch = (' + totalSlots + ' > 1) ? Math.max(0, (r.height - dynH) / (' + (totalSlots - 1) + ')) : 0;\n';
 
     if (ctx.style.id === "underline") {
-        if (totalLines === 1) {
+        if (totalSlots === 1) {
             posSnippet += '    curY = r.top + r.height - (Math.max(curFS * 0.12, 5) / 2) + 2;\n';
         } else {
-            posSnippet += '    curY = r.top + dynH + (' + box.lineIndex + ' * linePitch) - (Math.max(curFS * 0.12, 5) / 2) + 2;\n';
+            posSnippet += '    curY = r.top + dynH + (' + slotIndex + ' * linePitch) - (Math.max(curFS * 0.12, 5) / 2) + 2;\n';
         }
     } else {
-        if (totalLines === 1) {
+        if (totalSlots === 1) {
             posSnippet += '    curY = r.top + (r.height / 2);\n';
         } else {
-            posSnippet += '    curY = r.top + (dynH / 2) + (' + box.lineIndex + ' * linePitch);\n';
+            posSnippet += '    curY = r.top + (dynH / 2) + (' + slotIndex + ' * linePitch);\n';
         }
     }
 
@@ -411,10 +475,16 @@ var getStandardPositionSnippet = function (ctx) {
     if (box.isWord) {
         var isLineRTL = (typeof box.line_rtl === "boolean") ? box.line_rtl : box.rtl_k;
         if (isLineRTL) {
-            posSnippet += 
-                '    var rOff = ' + (box.rightOffset ? box.rightOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
-                '    var lineRight = (r.left + r.width) - rOff;\n' +
-                '    var rightEdge = lineRight - (' + box.wordOffset.toFixed(2) + ' * fontRatio);\n';
+            if (isCenter) {
+                posSnippet +=
+                    '    var cOff = ' + (box.centerOffset ? box.centerOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
+                    '    var lineRight = r.left + (r.width / 2) + cOff + (' + (box.lineWidth / 2).toFixed(2) + ' * fontRatio);\n';
+            } else {
+                posSnippet +=
+                    '    var rOff = ' + (box.rightOffset ? box.rightOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
+                    '    var lineRight = (r.left + r.width) - rOff;\n';
+            }
+            posSnippet += '    var rightEdge = lineRight - (' + box.wordOffset.toFixed(2) + ' * fontRatio);\n';
             if (box.rtl_k) {
                 // Arabic word in RTL line: wipes RTL
                 posSnippet +=
@@ -428,18 +498,30 @@ var getStandardPositionSnippet = function (ctx) {
                     '    curX = (leftEdge - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
                     '    [curX, curY + offY];\n';
             }
-        } else if (isCenter) {
-            posSnippet += 
-                '    var cOff = ' + (box.centerOffset ? box.centerOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
-                '    var lineLeft = r.left + (r.width / 2) + cOff - (' + (box.lineWidth / 2).toFixed(2) + ' * fontRatio);\n' +
-                '    curX = (lineLeft + (' + box.wordOffset.toFixed(2) + ' * fontRatio) - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
-                '    [curX, curY + offY];\n';
         } else {
-            posSnippet += 
-                '    var lOff = ' + (box.leftOffset ? box.leftOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
-                '    var lineLeft = r.left + lOff;\n' +
-                '    curX = (lineLeft + (' + box.wordOffset.toFixed(2) + ' * fontRatio) - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
-                '    [curX, curY + offY];\n';
+            if (isCenter) {
+                posSnippet +=
+                    '    var cOff = ' + (box.centerOffset ? box.centerOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
+                    '    var lineLeft = r.left + (r.width / 2) + cOff - (' + (box.lineWidth / 2).toFixed(2) + ' * fontRatio);\n';
+            } else {
+                posSnippet +=
+                    '    var lOff = ' + (box.leftOffset ? box.leftOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
+                    '    var lineLeft = r.left + lOff;\n';
+            }
+            posSnippet += '    var leftEdge = lineLeft + (' + box.wordOffset.toFixed(2) + ' * fontRatio);\n';
+            if (box.rtl_k) {
+                // Arabic word inside LTR line: positioned within LTR flow, wipes RTL
+                posSnippet +=
+                    '    var wordBaseW = ' + box.width.toFixed(2) + ' * fontRatio;\n' +
+                    '    var rightEdge = leftEdge + wordBaseW;\n' +
+                    '    curX = (rightEdge + pX - (startOffset * fontRatio)) - (curW / 2);\n' +
+                    '    [curX, curY + offY];\n';
+            } else {
+                // Latin word in LTR line: wipes LTR
+                posSnippet +=
+                    '    curX = (leftEdge - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
+                    '    [curX, curY + offY];\n';
+            }
         }
     } else {
         if (box.rtl_k) {
@@ -467,7 +549,7 @@ var getStandardPositionSnippet = function (ctx) {
 // Base Helper for Box Size
 var getStandardSizeSnippet = function (ctx) {
     var box = ctx.box;
-    var totalLines = (typeof ctx.totalLines === "number" && ctx.totalLines > 0) ? ctx.totalLines : 1;
+    var totalSlots = (typeof ctx.totalSlots === "number" && ctx.totalSlots > 0) ? ctx.totalSlots : ((typeof box.totalSlots === "number" && box.totalSlots > 0) ? box.totalSlots : ((typeof ctx.totalLines === "number" && ctx.totalLines > 0) ? ctx.totalLines : 1));
     var boxOutroOrder = ctx.boxOutroOrder || "first";
     var isForwardOutro = (boxOutroOrder === "first");
 
@@ -482,10 +564,12 @@ var getStandardSizeSnippet = function (ctx) {
         '    var useM = 0; try { useM = effect("Use Master Controls")(1); } catch(eM) {}\n' +
         '    var pX = (useM == 1 && pLayer && pLayer.effect("Master Padding X")) ? pLayer.effect("Master Padding X")(1) : effect("Local Padding X")(1);\n' +
         '    var pY = (useM == 1 && pLayer && pLayer.effect("Master Padding Y")) ? pLayer.effect("Master Padding Y")(1) : effect("Local Padding Y")(1);\n\n' +
-        '    var r = pLayer.sourceRectAtTime();\n' +
+        '    var r = pLayer.sourceRectAtTime(0, false);\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime(time, false); }\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime((pLayer.inPoint + pLayer.outPoint) * 0.5, false); }\n' +
         '    var baseFS = ' + safeBaseFS.toFixed(2) + ';\n' +
         '    var curFS = baseFS;\n' +
-        '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (r.height / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
+        '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (Math.max(1, r.height) / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
         '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n\n' +
         '    var p = 1; try { p = clamp(effect("Progress")(1) / 100, 0, 1); } catch(eP) {}\n' +
         '    var isOutro = false;\n' +
@@ -493,7 +577,7 @@ var getStandardSizeSnippet = function (ctx) {
         '        var pProg = null; try { pProg = effect("Progress")(1); } catch(ePP) {}\n' +
         '        if (pProg && pProg.velocity < -0.001) {\n' +
         '            isOutro = true;\n' +
-        '        } else if (pProg.numKeys >= 4 && time >= pProg.key(3).time) {\n' +
+        '        } else if (pProg && pProg.numKeys >= 4 && time >= pProg.key(3).time) {\n' +
         '            isOutro = true;\n' +
         '        }\n' +
         '        if (!isOutro && pLayer && pLayer.marker && pLayer.marker.numKeys > 0) {\n' +
@@ -509,8 +593,8 @@ var getStandardSizeSnippet = function (ctx) {
 
     if (ctx.style.id === "underline") {
         sizeSnippet += '    fullH = Math.max(curFS * 0.12, 5) + pY;\n';
-    } else if (totalLines === 1) {
-        sizeSnippet += '    fullH = r.height + (pY * 2);\n';
+    } else if (totalSlots === 1) {
+        sizeSnippet += '    fullH = Math.max(r.height, ' + box.height.toFixed(2) + ' * fontRatio) + (pY * 2);\n';
     } else {
         sizeSnippet += '    fullH = (' + box.height.toFixed(2) + ' * fontRatio) + (pY * 2);\n';
     }

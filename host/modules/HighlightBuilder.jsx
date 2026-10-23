@@ -335,7 +335,9 @@ $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBox
                 data: data,
                 style: styleRecipe,
                 motion: motionRecipe,
-                totalLines: totalLines,
+                totalLines: totalLines, // مستقل لتوقيت الحركة
+                totalSlots: (typeof box.totalSlots === "number" && box.totalSlots > 0) ? box.totalSlots : ((scan && typeof scan.totalSlots === "number") ? scan.totalSlots : totalLines), // للهندسة الرأسية
+                slotIndex: (typeof box.slotIndex === "number") ? box.slotIndex : (typeof box.lineIndex === "number" ? box.lineIndex : k),
                 totalWords: totalWords,
                 totalChars: totalTextChars,
                 baseFS: baseFS,

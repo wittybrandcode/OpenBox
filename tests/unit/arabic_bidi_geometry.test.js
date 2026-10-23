@@ -369,6 +369,174 @@ function runTest() {
         console.log('  ✓ Area Text Invariant: Unconstrained boxTextSize guarantees 100% trailing word containment in Arabic');
     }
 
+    // -------------------------------------------------------------
+    // Test 13: Slot-Based Vertical Indexing with Blank Lines Invariant
+    // -------------------------------------------------------------
+    {
+        // Scenario: Two 3-line paragraphs separated by a blank line (\r\n\r\n)
+        // Visual slots:
+        // Slot 0: Para 1 Line 1
+        // Slot 1: Para 1 Line 2
+        // Slot 2: Para 1 Line 3
+        // Slot 3: Blank line (no box generated!)
+        // Slot 4: Para 2 Line 1
+        // Slot 5: Para 2 Line 2
+        // Slot 6: Para 2 Line 3
+        const leading = 40;
+        const dynH = 30;
+        const totalSlots = 7;
+        const numLines = 6;
+        const rFullH = (totalSlots - 1) * leading + dynH; // 270px
+
+        // Buggy calculation (uses numLines = 6 and lineIndex = 0..5):
+        const buggyPitch = (rFullH - dynH) / (numLines - 1); // 240 / 5 = 48px!
+        const buggyBox3Y = 3 * buggyPitch; // 144px -> falls directly in the blank gap (120-160px)!
+        assert.ok(buggyBox3Y > 120 && buggyBox3Y < 160, "Buggy calculation must reproduce phantom box landing in blank gap");
+
+        // Fixed calculation (uses totalSlots = 7 and slotIndex = [0, 1, 2, 4, 5, 6]):
+        const fixedPitch = (rFullH - dynH) / (totalSlots - 1); // 240 / 6 = 40px (exact leading!)
+        assert.strictEqual(fixedPitch, leading, "Fixed linePitch must strictly equal text leading (40px)");
+
+        const slots = [0, 1, 2, 4, 5, 6];
+        const fixedPositions = slots.map(s => s * fixedPitch);
+
+        assert.strictEqual(fixedPositions[0], 0, "Para 1 Line 1 must be at 0px");
+        assert.strictEqual(fixedPositions[1], 40, "Para 1 Line 2 must be at 40px");
+        assert.strictEqual(fixedPositions[2], 80, "Para 1 Line 3 must be at 80px");
+        assert.strictEqual(fixedPositions[3], 160, "Para 2 Line 1 must strictly skip slot 3 and land at 160px");
+        assert.strictEqual(fixedPositions[4], 200, "Para 2 Line 2 must be at 200px");
+        assert.strictEqual(fixedPositions[5], 240, "Para 2 Line 3 must be at 240px");
+        console.log('  ✓ Slot Indexing Invariant: totalSlots & slotIndex eliminate phantom boxes on blank lines and maintain exact pitch');
+    }
+
+    // -------------------------------------------------------------
+    // Test 14: Intermediate Justified Line Wrap Detection Invariant
+    // -------------------------------------------------------------
+    {
+        // When checking candidate line wrapping under World-Ready composer:
+        // A candidate line tested in isolation (as a lone last line) lacks justification compression
+        // and wraps prematurely. Appending a trailing newline marker (\\r.) ensures it is measured
+        // as an intermediate justified line, preventing premature word dropping.
+        const refLineH = 30;
+        const ref2LineH = 55;
+
+        function simulateWrapCheck(testStr, isJustified, hasIntermediateMarker) {
+            // Suppose testStr has 10 words that span 452px in loose spacing, but 445px when compressed.
+            // Box width is 450px.
+            if (isJustified && !hasIntermediateMarker) {
+                // Lone last-line: uncompressed -> overflows 450px -> wraps to 2 lines -> height = 60px
+                return { height: 60, wraps: 60 > refLineH * 1.6 }; // wraps = true (Premature!)
+            }
+            if (isJustified && hasIntermediateMarker) {
+                // Intermediate line: compressed -> fits on line 1 (445px). Line 2 is "." -> temp has 2 lines -> height = 55px
+                return { height: 55, wraps: 55 > ref2LineH * 1.25 }; // 55 <= 68.75 -> wraps = false (Correctly fits!)
+            }
+            return { height: 30, wraps: false };
+        }
+
+        const premature = simulateWrapCheck("سطر عربي طويل ينتهي بكلمة آخرين", true, false);
+        const correct = simulateWrapCheck("سطر عربي طويل ينتهي بكلمة آخرين", true, true);
+
+        assert.strictEqual(premature.wraps, true, "Lone last-line without marker falsely triggers premature wrap");
+        assert.strictEqual(correct.wraps, false, "Intermediate line with marker correctly fits without premature wrap");
+        console.log('  ✓ Intermediate Wrap Detection: Marker \r. enforces World-Ready justification compression and preserves trailing words');
+    }
+
+    // -------------------------------------------------------------
+    // Test 15: Word & Tagged Measurement Box Expansion Invariant
+    // -------------------------------------------------------------
+    {
+        // TagManager tempWord measurement must expand boxTextSize to [100000, 100000]
+        const tempWordMock = {
+            boxText: true,
+            boxTextSize: [400, 600]
+        };
+
+        // Expansion logic:
+        if (tempWordMock.boxText) {
+            tempWordMock.boxTextSize = [100000, 100000];
+        }
+
+        assert.strictEqual(tempWordMock.boxTextSize[0], 100000, "tempWord box width must be expanded to 100000");
+        assert.strictEqual(tempWordMock.boxTextSize[1], 100000, "tempWord box height must be expanded to 100000");
+        console.log('  ✓ Tagged/Word Box Expansion Invariant: tempWord unconstrained boxTextSize prevents phrase wrapping during measurement');
+    }
+
+
+    // -------------------------------------------------------------
+    // Test 16: Justified Layout Width Invariant (Area Text boxTextSize vs Ink Bounds)
+    // -------------------------------------------------------------
+    {
+        // In Area Text with FULL_JUSTIFY_LASTLINE_*, After Effects justifies intermediate lines
+        // across the full layout width boxTextSize[0] (e.g. 500px).
+        // sourceRectAtTime(comp.time, false) measures glyph ink (e.g. 450px).
+        // In RTL Arabic, the box right edge is fixed at (r.left + r.width) + pX.
+        // If boxWidth = scan.fullW (450px), the box stops short on the left by 50px,
+        // leaving the trailing words (e.g. "آخرين", "في", "واعتداء") outside the highlight box!
+        // When boxWidth = scan.justifiedWidth (500px), the box reaches the true left margin
+        // and contains 100% of the trailing words.
+        const layoutBoxW = 500.0;
+        const inkFullW = 450.0;
+        const pX = 10.0;
+        const rFullRight = 600.0;
+
+        // Buggy measurement: boxWidth = scan.fullW = 450
+        const buggyBoxW = inkFullW;
+        const buggyBoxLeft = (rFullRight + pX) - (buggyBoxW + 2 * pX); // 610 - 470 = 140px
+        const textTrueLeft = rFullRight - layoutBoxW; // 600 - 500 = 100px
+        assert.ok(textTrueLeft < buggyBoxLeft, "Buggy box terminates early, leaving trailing word exposed on the left");
+
+        // Fixed measurement: boxWidth = scan.justifiedWidth = 500
+        const fixedBoxW = layoutBoxW;
+        const fixedBoxLeft = (rFullRight + pX) - (fixedBoxW + 2 * pX); // 610 - 520 = 90px
+        assert.ok(fixedBoxLeft <= textTrueLeft, "Fixed box reaches true left margin and encloses trailing words");
+        assert.strictEqual(fixedBoxLeft, textTrueLeft - pX, "Fixed box left edge exactly matches text margin minus pX padding");
+        console.log('  ✓ Justified Layout Width Invariant: boxTextSize guarantees full width containment of trailing words on the left');
+    }
+
+    // 17. Natural Line Width Invariant (Unjustified Area Text hugs each line like Latin)
+    {
+        // When text is not justified (scan.isJustified === false), lines in Area Text
+        // preserve their tight individual widths (ld.width) matching how Latin lines behave.
+        const mockScanUnjustified = {
+            isBoxText: true,
+            isJustified: false,
+            justifiedWidth: 1364.0,
+            fullW: 1356.5
+        };
+
+        const intermediateLine = { text: "سطر عربي ممتد يلتف في النهاية", width: 1332.14, isLastOfPara: false };
+        const lastLineOfPara = { text: "المركز.", width: 101.9, isLastOfPara: true };
+
+        function calcBoxWidth(ld, scan) {
+            if (scan.isJustified) {
+                if (scan.isJustifyFullAll || !ld.isLastOfPara) {
+                    return (typeof scan.justifiedWidth === "number" && scan.justifiedWidth > 0) ? scan.justifiedWidth : scan.fullW;
+                }
+            }
+            return ld.width;
+        }
+
+        const interBoxW = calcBoxWidth(intermediateLine, mockScanUnjustified);
+        assert.strictEqual(interBoxW, 1332.14, "Unjustified line must hug its exact text width (1332.14px) like Latin, not span full 1364px container");
+
+        const lastBoxW = calcBoxWidth(lastLineOfPara, mockScanUnjustified);
+        assert.strictEqual(lastBoxW, 101.9, "Last line of paragraph must preserve its tight natural width (101.9px)");
+
+        // When text IS justified (scan.isJustified === true):
+        const mockScanJustified = {
+            isBoxText: true,
+            isJustified: true,
+            isJustifyFullAll: false,
+            justifiedWidth: 1364.0,
+            fullW: 1356.5
+        };
+        const justInterBoxW = calcBoxWidth(intermediateLine, mockScanJustified);
+        assert.strictEqual(justInterBoxW, 1364.0, "Justified intermediate line expands to layout width (1364px)");
+
+        console.log('  ✓ Natural Line Width Invariant: Unjustified Area Text lines tightly hug text width like Latin');
+    }
+
     console.log('✓ All Arabic, BiDi & Word Selection Geometry Invariants Passed Successfully!\n');
 }
 

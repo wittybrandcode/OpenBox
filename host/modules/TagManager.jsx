@@ -1,14 +1,14 @@
 /**
  * OPENBOX - Host Engine
  * Module: TagManager.jsx
- * Version: 2.0.0 (Modular Architecture)
+ * Version: 2.2.0 (Non-Destructive Additive Phrase Engine & Exact In-Box Word Sync)
  * 
  * Manages tagged word parsing ([word], *word*, {word}), word stripping,
  * and multi-mode target box resolution (lines, tagged keywords, karaoke words).
  */
 
-// Ø§Ø³ØªØ®Ø±Ø§Ø¬ Ø§Ù„ÙƒÙ„Ù…Ø§Øª ÙˆØ§Ù„Ø¹Ø¨Ø§Ø±Ø§Øª Ø§Ù„Ù…Ø­Ø§Ø·Ø© Ø¨Ø§Ù„Ø£Ù‚ÙˆØ§Ø³ Ø£Ùˆ Ø§Ù„ÙˆØ³ÙˆÙ… [Ø¹Ø¨Ø§Ø±Ø©] Ø£Ùˆ *Ø¹Ø¨Ø§Ø±Ø©* Ø£Ùˆ {Ø¹Ø¨Ø§Ø±Ø©}
-// ÙŠØ¯Ø¹Ù… Ø§Ù…ØªØ¯Ø§Ø¯ Ø§Ù„Ø¹Ø¨Ø§Ø±Ø§Øª Ø¹Ø¨Ø± Ø§Ù„Ø£Ø³Ø·Ø± Ø§Ù„Ù…ØªØ¹Ø¯Ø¯Ø© (Multi-line Tagged Phrases)
+// استخراج الكلمات والعبارات المحاطة بالأقواس أو الوسوم [عبارة] أو *عبارة* أو {عبارة}
+// يدعم امتداد العبارات عبر الأسطر المتعددة (Multi-line Tagged Phrases)
 $._smartHighlighter.extractTags = function (text) {
     if (!text) return [];
     var tagPattern = /\[([^\]]+)\]|\*([^\*]+)\*|\{([^\}]+)\}/g;
@@ -34,7 +34,7 @@ $._smartHighlighter.extractTags = function (text) {
     return tags;
 };
 
-// ØªÙ†Ø¸ÙŠÙ Ø§Ù„Ù†Øµ Ù…Ù† Ø£Ù‚ÙˆØ§Ø³ Ø§Ù„ÙˆØ³ÙˆÙ… Ù„Ø¹Ø±Ø¶Ù‡ Ø¨Ø´ÙƒÙ„ Ø·Ø¨ÙŠØ¹ÙŠ
+// تنظيف النص من أقواس الوسوم لعرضه بشكل طبيعي
 $._smartHighlighter.stripTags = function (text) {
     if (!text) return "";
     return text.replace(/\[([^\]]+)\]/g, "$1")
@@ -42,7 +42,7 @@ $._smartHighlighter.stripTags = function (text) {
                .replace(/\{([^\}]+)\}/g, "$1");
 };
 
-// Ù‚ÙŠØ§Ø³ ÙˆØ§Ø³ØªØ®Ø±Ø§Ø¬ Ø£Ø¨Ø¹Ø§Ø¯ ØµÙ†Ø§Ø¯ÙŠÙ‚ Ø§Ù„ØªØ¸Ù„ÙŠÙ„ Ø³ÙˆØ§Ø¡ Ù„Ù„Ø£Ø³Ø·Ø± Ø§Ù„ÙƒØ§Ù…Ù„Ø© Ø£Ùˆ Ø§Ù„ÙƒÙ„Ù…Ø§Øª Ø§Ù„Ù…Ø³ØªÙ‡Ø¯ÙØ©
+// قياس واستخراج أبعاد صناديق التظليل سواء للأسطر الكاملة أو الكلمات المستهدفة
 $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
     var rawText = "";
     try {
@@ -89,131 +89,140 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
         }
     }
 
-    if (mode === "lines") {
-        for (var k = 0; k < scan.numLines; k++) {
-            var ld = scan.linesData[k];
-            var rtl_k = isCenter ? false : ((data.direction === "auto") ? (scan.isJustified ? (scan.justifyType === "right") : $._smartHighlighter.lineIsRTL(ld.text, fallbackRTL)) : (data.direction === "rtl"));
-            var cStart = (typeof ld.charStart === "number") ? ld.charStart : 0;
-            var cEnd = (typeof ld.charEnd === "number") ? ld.charEnd : (cStart + ld.text.length);
+    // دالة موحدة لبناء بيانات صندوق السطر مع ضمان الاصطفاف العمودي للبداية والاحتواء الكامل للنهاية
+    var buildLineBoxEntry = function (kIdx) {
+        var ld = scan.linesData[kIdx];
+        var rtl_k = isCenter ? false : ((data.direction === "auto") ? (scan.isJustified ? (scan.justifyType === "right") : $._smartHighlighter.lineIsRTL(ld.text, fallbackRTL)) : (data.direction === "rtl"));
+        var cStart = (typeof ld.charStart === "number") ? ld.charStart : 0;
+        var cEnd = (typeof ld.charEnd === "number") ? ld.charEnd : (cStart + ld.text.length);
 
-            // Ø¶Ù…Ø§Ù† Ø§ØµØ·ÙØ§Ù Ø¹Ù…ÙˆØ¯ÙŠ Ù…Ø³ØªÙ‚ÙŠÙ… 100% Ù„Ø¨Ø¯Ø§ÙŠØ§Øª Ø§Ù„Ø£Ø³Ø·Ø± (Flush Vertical Alignment for Start Side):
-            // ÙÙŠ Ù†Ù…Ø· Ø§Ù„Ø£Ø³Ø·Ø±ØŒ ÙŠØ¬Ø¨ Ø£Ù† ØªØµØ·Ù Ø¨Ø¯Ø§ÙŠØ§Øª Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø­Ø§ÙˆÙŠØ§Øª Ø¹Ù„Ù‰ Ø®Ø· Ø¹Ù…ÙˆØ¯ÙŠ ÙˆØ§Ø­Ø¯ ÙƒØ§Ù„Ù…Ø³Ø·Ø±Ø© Ø¯ÙˆÙ† Ø£ÙŠ ØªØ¹Ø±Ø¬ Ù†Ø§ØªØ¬ Ø¹Ù† Ù‡ÙˆØ§Ù…Ø´ Ø§Ù„Ø­Ø±ÙˆÙ
-            // Ø¨ÙŠÙ†Ù…Ø§ ØªØ¸Ù„ Ù†Ù‡Ø§ÙŠØ§Øª Ø§Ù„Ø£Ø³Ø·Ø± Ø­Ø±Ø© ÙˆØ¯ÙŠÙ†Ø§Ù…ÙŠÙƒÙŠØ© ÙˆÙÙ‚Ø§Ù‹ Ù„Ø·ÙˆÙ„ ÙˆÙƒÙ„Ù…Ø§Øª ÙƒÙ„ Ø³Ø·Ø±
-            var boxWidth = ld.width;
-            var lOff = (typeof ld.leftOffset === "number") ? ld.leftOffset : 0;
-            var rOff = (typeof ld.rightOffset === "number") ? ld.rightOffset : 0;
-            var cOff = (typeof ld.centerOffset === "number") ? ld.centerOffset : 0;
-            var lineCOffsets = (ld.cOffsets && ld.cOffsets.length > 0) ? ld.cOffsets.slice(0) : [];
-            var lineWOffsets = (ld.wOffsets && ld.wOffsets.length > 0) ? ld.wOffsets.slice(0) : [];
+        // ضمان اصطفاف عمودي مستقيم 100% لبدايات الأسطر (Flush Vertical Alignment for Start Side):
+        // في نمط الأسطر، يجب أن تصطف بدايات جميع الحاويات على خط عمودي واحد كالمسطرة دون أي تعرج ناتج عن هوامش الحروف
+        // بينما تظل نهايات الأسطر حرة وديناميكية وفقاً لطول وكلمات كل سطر دون أي قطع للكلمات الأخيرة
+        var boxWidth = ld.width;
+        var lOff = (typeof ld.leftOffset === "number") ? ld.leftOffset : 0;
+        var rOff = (typeof ld.rightOffset === "number") ? ld.rightOffset : 0;
+        var cOff = (typeof ld.centerOffset === "number") ? ld.centerOffset : 0;
+        var lineCOffsets = (ld.cOffsets && ld.cOffsets.length > 0) ? ld.cOffsets.slice(0) : [];
+        var lineWOffsets = (ld.wOffsets && ld.wOffsets.length > 0) ? ld.wOffsets.slice(0) : [];
+        var hasLeadingIndent = /^\s+/.test(ld.text);
 
-            if (data.fullWidth === true || data.boxWidthMode === "full") {
-                // Full Block Width mode: every box spans 100% full paragraph width
-                boxWidth = scan.fullW;
-                lOff = 0;
-                rOff = 0;
-            } else if (!isCenter) {
-                if (scan.isJustified) {
-                    if (scan.isJustifyFullAll || !ld.isLastOfPara) {
-                        lOff = 0;
-                        rOff = 0;
-                        boxWidth = scan.fullW;
-                    } else if (scan.justifyType === "right" || rtl_k) {
-                        if (rOff > 0 && rOff <= 4.0) {
-                            boxWidth = Math.round((boxWidth + rOff) * 10) / 10;
-                            if (lineCOffsets.length > 0) {
-                                for (var coR = 0; coR < lineCOffsets.length; coR++) {
-                                    lineCOffsets[coR] = Math.round((lineCOffsets[coR] + rOff) * 10) / 10;
-                                }
-                            }
-                            if (lineWOffsets.length > 0) {
-                                for (var woR = 0; woR < lineWOffsets.length; woR++) {
-                                    lineWOffsets[woR] = Math.round((lineWOffsets[woR] + rOff) * 10) / 10;
-                                }
-                            }
-                            rOff = 0;
-                        }
-                    } else if (scan.justifyType === "center") {
-                        // center
-                    } else {
-                        if (lOff > 0 && lOff <= 4.0) {
-                            boxWidth = Math.round((boxWidth + lOff) * 10) / 10;
-                            if (lineCOffsets.length > 0) {
-                                for (var coL = 0; coL < lineCOffsets.length; coL++) {
-                                    lineCOffsets[coL] = Math.round((lineCOffsets[coL] + lOff) * 10) / 10;
-                                }
-                            }
-                            if (lineWOffsets.length > 0) {
-                                for (var woL = 0; woL < lineWOffsets.length; woL++) {
-                                    lineWOffsets[woL] = Math.round((lineWOffsets[woL] + lOff) * 10) / 10;
-                                }
-                            }
-                            lOff = 0;
-                        }
+        var scaleLineOffsetsToWidth = function (oldW, newW) {
+            if (oldW > 0 && newW > 0 && Math.abs(newW - oldW) > 0.1) {
+                var ratio = newW / oldW;
+                if (lineCOffsets.length > 0) {
+                    for (var ci = 0; ci < lineCOffsets.length; ci++) {
+                        lineCOffsets[ci] = Math.round((lineCOffsets[ci] * ratio) * 10) / 10;
                     }
-                } else if (rtl_k) {
-                    // RTL (Arabic): only absorb subpixel jitter <= 4px; preserve true line offset if > 4px
-                    if (rOff > 0 && rOff <= 4.0) {
+                    lineCOffsets[lineCOffsets.length - 1] = Math.round(newW * 10) / 10;
+                }
+                if (lineWOffsets.length > 0) {
+                    for (var wi = 0; wi < lineWOffsets.length; wi++) {
+                        lineWOffsets[wi] = Math.round((lineWOffsets[wi] * ratio) * 10) / 10;
+                    }
+                    lineWOffsets[lineWOffsets.length - 1] = Math.round(newW * 10) / 10;
+                }
+            }
+        };
+
+        if (data.fullWidth === true || data.boxWidthMode === "full") {
+            // Full Block Width mode: every box spans 100% full paragraph width / layout width
+            var prevWFull = boxWidth;
+            boxWidth = (typeof scan.justifiedWidth === "number" && scan.justifiedWidth > 0) ? scan.justifiedWidth : scan.fullW;
+            scaleLineOffsetsToWidth(prevWFull, boxWidth);
+            lOff = 0;
+            rOff = 0;
+        } else if (!isCenter) {
+            // الحد الأقصى لامتصاص فرق البداية في الأسطر غير البادئة بمسافات:
+            // في الأسطر الوسيطة الملتفة داخل Area Text، ندمج rOff (أو lOff) ضمن عرض الصندوق ليظل الطرف الأيمن
+            // مصطفاً كالمسطرة عند هامش الحاوية بينما يصل الطرف الأيسر إلى الحافة الفعلية لآخر كلمة ("آخرين") دون قطع
+            var maxFlushAbsorb = (scan.isBoxText && !ld.isLastOfPara && !hasLeadingIndent)
+                ? Math.max(8.0, (scan.fontSize || 40) * 0.9)
+                : (!hasLeadingIndent ? 8.0 : 4.0);
+
+            if (scan.isJustified) {
+                // في النصوص المضبوطة: نعتمد عرض التخطيط للأسطر الممتدة
+                if (scan.isJustifyFullAll || !ld.isLastOfPara) {
+                    var prevWJust = boxWidth;
+                    lOff = 0;
+                    rOff = 0;
+                    boxWidth = (typeof scan.justifiedWidth === "number" && scan.justifiedWidth > 0) ? scan.justifiedWidth : scan.fullW;
+                    scaleLineOffsetsToWidth(prevWJust, boxWidth);
+                } else if (scan.justifyType === "right" || rtl_k) {
+                    if (rOff > 0 && rOff <= maxFlushAbsorb) {
+                        var prevWR = boxWidth;
                         boxWidth = Math.round((boxWidth + rOff) * 10) / 10;
-                        if (lineCOffsets.length > 0) {
-                            for (var coR2 = 0; coR2 < lineCOffsets.length; coR2++) {
-                                lineCOffsets[coR2] = Math.round((lineCOffsets[coR2] + rOff) * 10) / 10;
-                            }
-                        }
-                        if (lineWOffsets.length > 0) {
-                            for (var woR2 = 0; woR2 < lineWOffsets.length; woR2++) {
-                                lineWOffsets[woR2] = Math.round((lineWOffsets[woR2] + rOff) * 10) / 10;
-                            }
-                        }
+                        scaleLineOffsetsToWidth(prevWR, boxWidth);
                         rOff = 0;
                     }
+                } else if (scan.justifyType === "center") {
+                    // center
                 } else {
-                    // LTR (Latin): only absorb subpixel jitter <= 4px; preserve true line offset if > 4px
-                    if (lOff > 0 && lOff <= 4.0) {
+                    if (lOff > 0 && lOff <= maxFlushAbsorb) {
+                        var prevWL = boxWidth;
                         boxWidth = Math.round((boxWidth + lOff) * 10) / 10;
-                        if (lineCOffsets.length > 0) {
-                            for (var coL2 = 0; coL2 < lineCOffsets.length; coL2++) {
-                                lineCOffsets[coL2] = Math.round((lineCOffsets[coL2] + lOff) * 10) / 10;
-                            }
-                        }
-                        if (lineWOffsets.length > 0) {
-                            for (var woL2 = 0; woL2 < lineWOffsets.length; woL2++) {
-                                lineWOffsets[woL2] = Math.round((lineWOffsets[woL2] + lOff) * 10) / 10;
-                            }
-                        }
+                        scaleLineOffsetsToWidth(prevWL, boxWidth);
                         lOff = 0;
                     }
                 }
+            } else if (rtl_k) {
+                // RTL (Arabic): دمج إزاحة البداية اليمنى ضمن عرض الصندوق للحفاظ على اصطفاف اليمين وتغطية كامل النص يساراً
+                if (rOff > 0 && rOff <= maxFlushAbsorb) {
+                    var prevWR2 = boxWidth;
+                    boxWidth = Math.round((boxWidth + rOff) * 10) / 10;
+                    scaleLineOffsetsToWidth(prevWR2, boxWidth);
+                    rOff = 0;
+                }
+            } else {
+                // LTR (Latin): دمج إزاحة البداية اليسرى ضمن عرض الصندوق للحفاظ على اصطفاف اليسار وتغطية كامل النص يميناً
+                if (lOff > 0 && lOff <= maxFlushAbsorb) {
+                    var prevWL2 = boxWidth;
+                    boxWidth = Math.round((boxWidth + lOff) * 10) / 10;
+                    scaleLineOffsetsToWidth(prevWL2, boxWidth);
+                    lOff = 0;
+                }
             }
+        }
 
-            boxesData.push({
-                boxIndex: k,
-                lineIndex: k,
-                text: ld.text,
-                width: boxWidth,
-                height: ld.height,
-                lineH: ld.height,
-                lineTop: ld.top,
-                charStart: cStart,
-                charEnd: cEnd,
-                totalChars: scan.fullText.length,
-                isWord: false,
-                wordOffset: 0,
-                rightOffset: rOff,
-                leftOffset: lOff,
-                centerOffset: cOff,
-                lineWidth: boxWidth,
-                rtl_k: rtl_k,
-                name: textLayer.name + " - [Line " + (k + 1) + "]",
-                cOffsets: lineCOffsets,
-                wOffsets: lineWOffsets,
-                wordStart: (typeof ld.wordStart === "number") ? ld.wordStart : 0,
-                wordEnd: (typeof ld.wordEnd === "number") ? ld.wordEnd : 0
-            });
+        var sIdx = (typeof ld.slotIndex === "number") ? ld.slotIndex : kIdx;
+        var tSlots = (typeof scan.totalSlots === "number") ? scan.totalSlots : scan.numLines;
+        return {
+            boxIndex: kIdx,
+            lineIndex: kIdx,
+            slotIndex: sIdx,
+            totalSlots: tSlots,
+            text: ld.text,
+            width: boxWidth,
+            height: ld.height,
+            lineH: ld.height,
+            lineTop: ld.top,
+            charStart: cStart,
+            charEnd: cEnd,
+            totalChars: scan.fullText.length,
+            isWord: false,
+            wordOffset: 0,
+            rightOffset: rOff,
+            leftOffset: lOff,
+            centerOffset: cOff,
+            lineWidth: boxWidth,
+            rtl_k: rtl_k,
+            name: textLayer.name + " - [Line " + (kIdx + 1) + "]",
+            cOffsets: lineCOffsets,
+            wOffsets: lineWOffsets,
+            wordStart: (typeof ld.wordStart === "number") ? ld.wordStart : 0,
+            wordEnd: (typeof ld.wordEnd === "number") ? ld.wordEnd : 0
+        };
+    };
+
+    if (mode === "lines") {
+        for (var k = 0; k < scan.numLines; k++) {
+            boxesData.push(buildLineBoxEntry(k));
         }
     } else {
-        // Ù†Ù…Ø· Ø§Ù„ÙƒÙ„Ù…Ø§Øª Ø§Ù„Ù…ÙØªØ§Ø­ÙŠØ© (Tagged Words) Ø£Ùˆ ÙƒØ§Ø±ÙŠÙˆÙƒÙŠ ÙƒÙ„ Ø§Ù„ÙƒÙ„Ù…Ø§Øª (Words Mode)
+        // نمط الكلمات المفتاحية (Tagged Words) أو كاريوكي كل الكلمات (Words Mode)
         var tempWord = null;
         try {
+            var srcPropWord = textLayer.property("Source Text");
             tempWord = textLayer.duplicate();
             tempWord.name = $._smartHighlighter.SCAN_TEMP_WORDS;
             tempWord.enabled = true;
@@ -221,7 +230,10 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
 
             var setTempWordText = function (str) {
                 try {
-                    var wd = tempWord.property("Source Text").value;
+                    var wd = srcPropWord.value;
+                    if (wd && wd.boxText) {
+                        wd.boxTextSize = [100000, 100000];
+                    }
                     wd.text = str;
                     tempWord.property("Source Text").setValue(wd);
                 } catch (eWd) {
@@ -232,7 +244,13 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
             for (var lIdx = 0; lIdx < scan.numLines; lIdx++) {
                 var lineObj = scan.linesData[lIdx];
                 var lText = lineObj.text;
-                var rtl_line = isCenter ? false : ((data.direction === "auto") ? (scan.isJustified ? (scan.justifyType === "right") : $._smartHighlighter.lineIsRTL(lText, fallbackRTL)) : (data.direction === "rtl"));
+                var rtl_line = (data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (scan.isJustified ? (scan.justifyType === "right" ? true : (scan.justifyType === "left" ? false : $._smartHighlighter.lineIsRTL(lText, fallbackRTL))) : $._smartHighlighter.lineIsRTL(lText, fallbackRTL)));
+
+                // حساب فرق تمدد المسافات الفعلي للسطر داخل الفقرة (World-Ready / Paragraph Composer Delta)
+                var lineRawW = (typeof lineObj.rawWidth === "number" && lineObj.rawWidth > 0) ? lineObj.rawWidth : lineObj.width;
+                var extraLineW = lineObj.width - lineRawW;
+                var totalSpacesInLine = (lText.match(/\s+/g) || []).length;
+                var deltaPerSpace = (totalSpacesInLine > 0 && Math.abs(extraLineW) > 0.2) ? (extraLineW / totalSpacesInLine) : 0;
 
                 var wordsToFind = [];
                 if (mode === "tagged") {
@@ -286,14 +304,17 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
                     setTempWordText(item.phrase);
                     var rWord = tempWord.sourceRectAtTime(comp.time, false);
 
-                    var wOffset = Math.max(0, rUpTo.width - rWord.width);
-                    var finalWordW = rWord.width;
+                    var rawWOffset = (item.charIdx <= 0) ? 0 : Math.max(0, rUpTo.width - rWord.width);
+                    var spacesBeforeWord = (item.charIdx > 0) ? (lText.substring(0, item.charIdx).match(/\s+/g) || []).length : 0;
+                    var spacesInsideWord = (item.phrase.match(/\s+/g) || []).length;
+                    var wOffset = Math.max(0, Math.round((rawWOffset + spacesBeforeWord * deltaPerSpace) * 10) / 10);
+                    var finalWordW = Math.max(1, Math.round((rWord.width + spacesInsideWord * deltaPerSpace) * 10) / 10);
                     var finalWordH = Math.max(rWord.height, lineObj.height * 0.9);
 
                     var wordCharStart = (typeof lineObj.charStart === "number") ? (lineObj.charStart + item.charIdx) : item.charIdx;
                     var wordCharEnd = wordCharStart + item.phrase.length;
 
-                    // Ù‚ÙŠØ§Ø³ Ø§Ù„Ø¹Ø±ÙˆØ¶ Ø§Ù„ØªØ±Ø§ÙƒÙ…ÙŠØ© Ø§Ù„Ø¯Ù‚ÙŠÙ‚Ø© Ù„Ù„ÙƒÙ„Ù…Ø© (Exact cumulative character offsets for word)
+                    // قياس العروض التراكمية الدقيقة للكلمة (Exact cumulative character offsets for word)
                     var wordCOffsets = [];
                     var pText = item.phrase;
                     var prevWordOffW = 0;
@@ -310,10 +331,21 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
                         wordCOffsets.push(Math.round(curPWSubW * 10) / 10);
                         prevWordOffW = curPWSubW;
                     }
+                    if (finalWordW > 0 && wordCOffsets.length > 0 && prevWordOffW > 0 && Math.abs(finalWordW - prevWordOffW) > 0.5) {
+                        var wScaleRatio = finalWordW / prevWordOffW;
+                        for (var wcIdx = 0; wcIdx < wordCOffsets.length; wcIdx++) {
+                            wordCOffsets[wcIdx] = Math.round((wordCOffsets[wcIdx] * wScaleRatio) * 10) / 10;
+                        }
+                        wordCOffsets[wordCOffsets.length - 1] = Math.round(finalWordW * 10) / 10;
+                    }
 
+                    var wordSlotIdx = (typeof lineObj.slotIndex === "number") ? lineObj.slotIndex : lIdx;
+                    var tSlotsWord = (typeof scan.totalSlots === "number") ? scan.totalSlots : scan.numLines;
                     boxesData.push({
                         boxIndex: boxesData.length,
                         lineIndex: lIdx,
+                        slotIndex: wordSlotIdx,
+                        totalSlots: tSlotsWord,
                         text: item.phrase,
                         width: finalWordW,
                         height: finalWordH,
@@ -353,38 +385,11 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
         }
     }
 
-    // Ø¥Ø°Ø§ Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø£ÙŠ ÙƒÙ„Ù…Ø§Øª ÙÙŠ Ù†Ù…Ø· taggedØŒ Ù†ØªØ±Ø§Ø¬Ø¹ ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹ Ù„Ù†Ù…Ø· Ø§Ù„Ø£Ø³Ø·Ø±
+    // إذا لم يتم العثور على أي كلمات في نمط tagged، نتراجع تلقائياً لنمط الأسطر
     if (boxesData.length === 0) {
         mode = "lines";
         for (var k2 = 0; k2 < scan.numLines; k2++) {
-            var ld2 = scan.linesData[k2];
-            var rtl_k2 = isCenter ? false : ((data.direction === "auto") ? (scan.isJustified ? (scan.justifyType === "right") : $._smartHighlighter.lineIsRTL(ld2.text, fallbackRTL)) : (data.direction === "rtl"));
-            var cStart2 = (typeof ld2.charStart === "number") ? ld2.charStart : 0;
-            var cEnd2 = (typeof ld2.charEnd === "number") ? ld2.charEnd : (cStart2 + ld2.text.length);
-            boxesData.push({
-                boxIndex: k2,
-                lineIndex: k2,
-                text: ld2.text,
-                width: ld2.width,
-                height: ld2.height,
-                lineH: ld2.height,
-                lineTop: ld2.top,
-                charStart: cStart2,
-                charEnd: cEnd2,
-                totalChars: scan.fullText.length,
-                isWord: false,
-                wordOffset: 0,
-                rightOffset: (typeof ld2.rightOffset === "number") ? ld2.rightOffset : 0,
-                leftOffset: (typeof ld2.leftOffset === "number") ? ld2.leftOffset : 0,
-                centerOffset: (typeof ld2.centerOffset === "number") ? ld2.centerOffset : 0,
-                lineWidth: ld2.width,
-                rtl_k: rtl_k2,
-                name: textLayer.name + " - [Line " + (k2 + 1) + "]",
-                cOffsets: ld2.cOffsets || [],
-                wOffsets: ld2.wOffsets || [],
-                wordStart: (typeof ld2.wordStart === "number") ? ld2.wordStart : 0,
-                wordEnd: (typeof ld2.wordEnd === "number") ? ld2.wordEnd : 0
-            });
+            boxesData.push(buildLineBoxEntry(k2));
         }
     }
 
@@ -433,7 +438,12 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                 textLayer = textLayer.parent;
             } else if (textLayer.comment && textLayer.comment.indexOf("PARENT:") !== -1) {
                 var pName = textLayer.comment.replace("PARENT:", "").replace(/^\s+|\s+$/g, "");
-                textLayer = comp.layer(pName);
+                try { textLayer = comp.layer(pName); } catch (eP1) {}
+            } else if (textLayer.comment && textLayer.comment.indexOf("parent:") !== -1) {
+                var mPar = textLayer.comment.match(/parent:([^\|]+)/);
+                if (mPar && mPar[1]) {
+                    try { textLayer = comp.layer(mPar[1]); } catch (eP2) {}
+                }
             }
         }
         if (!textLayer || !(textLayer instanceof TextLayer)) {
@@ -445,30 +455,17 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
 
         var textLayerIndex = textLayer.index;
         var textLayerName = textLayer.name;
-
-        // Remove any previous phrase highlight shape layers for this text layer
         var phraseTag = "SMART_HL_PHRASE";
-        for (var si = comp.numLayers; si >= 1; si--) {
-            var lyr = comp.layer(si);
-            if (!lyr || lyr.index === textLayerIndex) continue;
-            var isParent = false;
-            try {
-                if (lyr.parent && (lyr.parent.index === textLayerIndex || lyr.parent.name === textLayerName || lyr.parent === textLayer)) {
-                    isParent = true;
-                }
-            } catch (ePar) {}
-            var isPhrase = (lyr.comment && lyr.comment.indexOf(phraseTag) !== -1) || (lyr.name && lyr.name.indexOf("[HL-Phrase]") !== -1);
-            if (isParent && isPhrase) {
-                try { lyr.remove(); } catch (eDel) {}
-            }
-        }
 
-        // If no phrases passed, treat as clean clear
+        // If explicitly requested to clear all phrases when empty array is passed with clearAll flag
         if (!data.phrases || data.phrases.length === 0) {
-            return "SUCCESS: Cleared phrase highlights";
+            if (data.clearAll === true) {
+                return $._smartHighlighter.clearPhraseHighlights();
+            }
+            return "ERROR: Please select at least one word or phrase";
         }
 
-        // Read source text non-destructively (Source Text is NOT touched)
+        // Read source text non-destructively (Source Text is NEVER touched)
         var rawText = "";
         try {
             rawText = textLayer.property("Source Text").value.text;
@@ -482,7 +479,8 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
         }
 
         // Resolve justification & fallback reading direction
-        var fallbackRTL = false;
+        var docDirCounts = $._smartHighlighter.countDir ? $._smartHighlighter.countDir(scan.fullText) : { rtl: 0, ltr: 0 };
+        var fallbackRTL = (docDirCounts.rtl > docDirCounts.ltr);
         var isCenter = false;
         if (data.direction === "center") {
             isCenter = true;
@@ -494,16 +492,12 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             if (scan.isJustified) {
                 if (scan.justifyType === "right") fallbackRTL = true;
                 else if (scan.justifyType === "center") isCenter = true;
-                else fallbackRTL = false;
+                else if (scan.justifyType === "left") fallbackRTL = false;
             } else {
                 var pj = $._smartHighlighter.detectJustification(scan.justification);
                 if (pj === "center") isCenter = true;
                 else if (pj === "rtl") fallbackRTL = true;
                 else if (pj === "ltr") fallbackRTL = false;
-                else {
-                    var fc = $._smartHighlighter.countDir(scan.fullText);
-                    fallbackRTL = (fc.rtl > fc.ltr);
-                }
             }
         }
 
@@ -511,14 +505,28 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
         var tempWord = null;
         var boxesData = [];
         try {
+            var srcPropPhrase = textLayer.property("Source Text");
             tempWord = textLayer.duplicate();
             tempWord.name = $._smartHighlighter.SCAN_TEMP_WORDS;
             tempWord.enabled = true;
             tempWord.guideLayer = true;
 
+            // Remove any text animators on tempWord so sourceRectAtTime always measures 100% un-animated glyphs
+            try {
+                var twAnimators = tempWord.property("ADBE Text Properties").property("ADBE Text Animators");
+                if (twAnimators && twAnimators.numProperties > 0) {
+                    for (var tai = twAnimators.numProperties; tai >= 1; tai--) {
+                        try { twAnimators.property(tai).remove(); } catch (eRmTa) {}
+                    }
+                }
+            } catch (eTwAnim) {}
+
             var setTempWordText = function (str) {
                 try {
-                    var wd = tempWord.property("Source Text").value;
+                    var wd = srcPropPhrase.value;
+                    if (wd && wd.boxText) {
+                        wd.boxTextSize = [100000, 100000];
+                    }
                     wd.text = str;
                     tempWord.property("Source Text").setValue(wd);
                 } catch (eWd) {
@@ -530,7 +538,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                 var phr = data.phrases[pIdx];
                 var pStart = (typeof phr.charStart === "number") ? phr.charStart : 0;
                 var pEnd = (typeof phr.charEnd === "number") ? phr.charEnd : (pStart + (phr.text || "").length);
-                var pId = "phr_" + (new Date().getTime()) + "_" + pIdx + "_" + Math.floor(Math.random() * 1000);
+                var pId = phr.id || ("phr_" + (new Date().getTime()) + "_" + pIdx + "_" + Math.floor(Math.random() * 1000));
                 var pColHex = phr.colorHex || data.colorHex;
                 if (!pColHex) {
                     var cArr = phr.color || data.color;
@@ -561,31 +569,33 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                 localEnd -= trailWs;
                                 subPhrase = subPhrase.substring(leadWs, subPhrase.length - trailWs);
 
-                                // Ensure tempWord does not wrap to second line during measurements
-                                try {
-                                    var twDoc = tempWord.property("Source Text").value;
-                                    if (twDoc && twDoc.boxText) {
-                                        twDoc.boxTextSize = [100000, 100000];
-                                        tempWord.property("Source Text").setValue(twDoc);
-                                    }
-                                } catch (eTwBox) {}
+                                // Compute exact word-spacing expansion delta from Area Text Paragraph Composer
+                                var phrLineRawW = (typeof lineObj.rawWidth === "number" && lineObj.rawWidth > 0) ? lineObj.rawWidth : lineObj.width;
+                                var extraLineW = lineObj.width - phrLineRawW;
+                                var totalSpacesInLine = (lText.match(/\s+/g) || []).length;
+                                var deltaPerSpace = (totalSpacesInLine > 0 && Math.abs(extraLineW) > 0.2) ? (extraLineW / totalSpacesInLine) : 0;
 
                                 var prefixUpTo = lText.substring(0, localStart + subPhrase.length);
                                 setTempWordText(prefixUpTo);
                                 var rUpTo = tempWord.sourceRectAtTime(comp.time, false);
 
-                                var wOffset = 0;
-                                if (localStart > 0) {
-                                    setTempWordText(lText.substring(0, localStart));
-                                    var rPrefix = tempWord.sourceRectAtTime(comp.time, false);
-                                    wOffset = rPrefix.width;
-                                }
-
                                 setTempWordText(subPhrase);
                                 var rWord = tempWord.sourceRectAtTime(comp.time, false);
 
-                                var finalW = Math.max(rWord.width, Math.max(0, rUpTo.width - wOffset));
+                                // rUpTo.width - rWord.width retains all spaces before subPhrase without trailing-space stripping
+                                var rawWOffset = (localStart <= 0) ? 0 : Math.max(0, rUpTo.width - rWord.width);
+                                var spacesBeforePhrase = (localStart > 0) ? (lText.substring(0, localStart).match(/\s+/g) || []).length : 0;
+                                var spacesInsidePhrase = (subPhrase.match(/\s+/g) || []).length;
+
+                                var wOffset = Math.max(0, Math.round((rawWOffset + spacesBeforePhrase * deltaPerSpace) * 10) / 10);
+                                var finalW = Math.max(1, Math.round((rWord.width + spacesInsidePhrase * deltaPerSpace) * 10) / 10);
                                 var finalH = Math.max(rWord.height, lineObj.height * 0.9);
+
+                                // Word-level start/end indices for accurate synchronization when Typewriter is in Words mode
+                                var wordsBeforeOnLine = (localStart > 0) ? (lText.substring(0, localStart).match(/\S+/g) || []).length : 0;
+                                var wordsInSubPhrase = Math.max(1, (subPhrase.match(/\S+/g) || []).length);
+                                var phrWordStart = ((typeof lineObj.wordStart === "number") ? lineObj.wordStart : 0) + wordsBeforeOnLine;
+                                var phrWordEnd = phrWordStart + wordsInSubPhrase;
 
                                 var wordCOffsets = [];
                                 var prevWordOffW = 0;
@@ -595,21 +605,33 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                     var rPWSub = tempWord.sourceRectAtTime(comp.time, false);
                                     var curPWSubW = rPWSub.width;
                                     if (/\s/.test(subPhrase.charAt(pwc - 1)) && curPWSubW <= prevWordOffW) {
-                                        curPWSubW = prevWordOffW + fontSpaceW;
+                                        curPWSubW = prevWordOffW + (fontSpaceW + deltaPerSpace);
                                     } else {
                                         curPWSubW = Math.max(prevWordOffW, curPWSubW);
                                     }
                                     wordCOffsets.push(Math.round(curPWSubW * 10) / 10);
                                     prevWordOffW = curPWSubW;
                                 }
+                                if (finalW > 0 && wordCOffsets.length > 0 && prevWordOffW > 0 && Math.abs(finalW - prevWordOffW) > 0.5) {
+                                    var phrScaleRatio = finalW / prevWordOffW;
+                                    for (var pwcIdx = 0; pwcIdx < wordCOffsets.length; pwcIdx++) {
+                                        wordCOffsets[pwcIdx] = Math.round((wordCOffsets[pwcIdx] * phrScaleRatio) * 10) / 10;
+                                    }
+                                    wordCOffsets[wordCOffsets.length - 1] = Math.round(finalW * 10) / 10;
+                                }
 
-                                var rtl_line = isCenter ? false : ((data.direction === "auto" || !data.direction) ? (scan.isJustified ? (scan.justifyType === "right") : $._smartHighlighter.lineIsRTL(lText, fallbackRTL)) : (data.direction === "rtl"));
+                                // Determine true reading direction of the line (never force false on Center-aligned Arabic lines!)
+                                var rtl_line = (data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (scan.isJustified ? (scan.justifyType === "right" ? true : (scan.justifyType === "left" ? false : $._smartHighlighter.lineIsRTL(lText, fallbackRTL))) : $._smartHighlighter.lineIsRTL(lText, fallbackRTL)));
                                 var wordHasArabic = $._smartHighlighter.hasArabic(subPhrase);
-                                var box_rtl = isCenter ? false : ((data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (wordHasArabic ? true : (/[A-Za-z]/.test(subPhrase) ? false : rtl_line))));
+                                var box_rtl = (data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (wordHasArabic ? true : (/[A-Za-z]/.test(subPhrase) ? false : rtl_line)));
 
+                                var phrSlotIdx = (typeof lineObj.slotIndex === "number") ? lineObj.slotIndex : lIdx;
+                                var phrTotalSlots = (typeof scan.totalSlots === "number") ? scan.totalSlots : scan.numLines;
                                 boxesData.push({
                                     boxIndex: boxesData.length,
                                     lineIndex: lIdx,
+                                    slotIndex: phrSlotIdx,
+                                    totalSlots: phrTotalSlots,
                                     text: subPhrase,
                                     phraseText: phr.text || subPhrase,
                                     phraseId: pId,
@@ -620,6 +642,8 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                     lineTop: lineObj.top,
                                     charStart: lStart + localStart,
                                     charEnd: lStart + localEnd,
+                                    wordStart: phrWordStart,
+                                    wordEnd: phrWordEnd,
                                     totalChars: scan.fullText.length,
                                     isWord: true,
                                     wordOffset: wOffset,
@@ -666,38 +690,97 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             return "ERROR: No matching words could be measured in text";
         }
 
-        // Build Shape Layers for phrase highlight boxes
+        // Build Shape Layers for phrase highlight boxes (Additive & Non-Destructive)
         app.beginUndoGroup("OpenBox: Apply Phrase Highlight");
 
-        var totalBoxes = boxesData.length;
-        var totalTextChars = scan.fullText.length || 1;
-        var baseTotalH = scan.fullH;
-        var baseFS = scan.fontSize;
-        var totalLines = scan.numLines;
-        var globalMotion = data.motion || "typewriter";
-
-        var detectedAnim = (globalMotion === "typewriter") ? $._smartHighlighter.detectTextAnimator(textLayer) : null;
-        var typeStartTime = (detectedAnim && detectedAnim.hasKeys) ? detectedAnim.startTime : comp.time;
-        var revealUnit = data.revealUnit || "chars";
-        var typeTotalDur;
-        if (detectedAnim && detectedAnim.hasKeys && detectedAnim.endTime > detectedAnim.startTime) {
-            typeTotalDur = detectedAnim.endTime - detectedAnim.startTime;
-            if (globalMotion === "typewriter") {
-                $._smartHighlighter.ensureTextTypewriter(textLayer, typeStartTime, typeStartTime + typeTotalDur, "opacity", revealUnit, false, null, null, null, false);
+        // Additive Workflow: Only remove existing phrase layers if they overlap with the newly applied character ranges (or if replaceAll is requested)
+        for (var si = comp.numLayers; si >= 1; si--) {
+            var lyr = comp.layer(si);
+            if (!lyr || lyr.index === textLayerIndex) continue;
+            var isParent = false;
+            try {
+                if (lyr.parent && (lyr.parent.index === textLayerIndex || lyr.parent.name === textLayerName || lyr.parent === textLayer)) {
+                    isParent = true;
+                }
+            } catch (ePar) {}
+            var cmt = lyr.comment || "";
+            if (!isParent && cmt.indexOf("parent:" + textLayerName) !== -1) {
+                isParent = true;
             }
-        } else {
-            typeTotalDur = 1.2;
-            if (globalMotion === "typewriter") {
-                $._smartHighlighter.ensureTextTypewriter(textLayer, typeStartTime, typeStartTime + typeTotalDur, "opacity", revealUnit, false, null, null, null, false);
+            var isPhrase = (cmt.indexOf(phraseTag) !== -1) || (lyr.name && lyr.name.indexOf("[HL-Phrase]") !== -1);
+            if (isParent && isPhrase) {
+                if (data.replaceAll === true) {
+                    try { lyr.remove(); } catch (eDelAll) {}
+                } else {
+                    var csM = cmt.match(/cs:(\d+)/);
+                    var ceM = cmt.match(/ce:(\d+)/);
+                    var exCs = csM ? parseInt(csM[1], 10) : -1;
+                    var exCe = ceM ? parseInt(ceM[1], 10) : -1;
+                    var shouldReplace = false;
+                    if (exCs >= 0 && exCe > exCs) {
+                        for (var nb = 0; nb < boxesData.length; nb++) {
+                            if (exCs < boxesData[nb].charEnd && exCe > boxesData[nb].charStart) {
+                                shouldReplace = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (shouldReplace) {
+                        try { lyr.remove(); } catch (eDelOverlap) {}
+                    }
+                }
             }
         }
 
+        var totalBoxes = boxesData.length;
+        var totalTextChars = Math.max(1, scan.fullText.length || 1);
+        var totalWords = (scan && typeof scan.numWords === "number" && scan.numWords > 0) ? scan.numWords : 1;
+        var baseTotalH = scan.fullH;
+        var baseTotalW = scan.fullW;
+        var baseFullLeft = (typeof scan.fullLeft === "number") ? scan.fullLeft : 0;
+        var baseFullTop = (typeof scan.fullTop === "number") ? scan.fullTop : 0;
+        var baseFS = scan.fontSize;
+        var totalLines = Math.max(1, scan.numLines || 1);
+        var globalMotion = data.motion || "typewriter";
+
+        // NON-DESTRUCTIVE PASSIVE SYNC: Inspect existing animator on textLayer WITHOUT modifying or deleting it!
+        var activeAnimInfo = ($._smartHighlighter.inspectActiveTypewriter)
+            ? $._smartHighlighter.inspectActiveTypewriter(textLayer)
+            : $._smartHighlighter.detectTextAnimator(textLayer);
+
+        var typeStartTime = (activeAnimInfo && activeAnimInfo.hasKeys) ? activeAnimInfo.startTime : comp.time;
+        var typeTotalDur = (activeAnimInfo && activeAnimInfo.hasKeys && activeAnimInfo.endTime > activeAnimInfo.startTime)
+            ? (activeAnimInfo.endTime - activeAnimInfo.startTime)
+            : 1.2;
+        var revealUnit = data.revealUnit || "chars";
+        if (activeAnimInfo && activeAnimInfo.basedOnUnit === 3) {
+            revealUnit = "words";
+        } else if (activeAnimInfo && activeAnimInfo.basedOnUnit === 4) {
+            revealUnit = "lines";
+        }
+
+        // Find the last layer belonging to textLayer so new phrase layers stack neatly in order
         var lastLayer = textLayer;
+        for (var li = textLayer.index + 1; li <= comp.numLayers; li++) {
+            var chkChild = comp.layer(li);
+            if (!chkChild) continue;
+            var belongsToText = false;
+            try {
+                if (chkChild.parent && (chkChild.parent === textLayer || chkChild.parent.index === textLayer.index)) {
+                    belongsToText = true;
+                }
+            } catch (eChP) {}
+            if (belongsToText && chkChild.comment && chkChild.comment.indexOf(phraseTag) !== -1) {
+                lastLayer = chkChild;
+            } else {
+                break;
+            }
+        }
 
         for (var k = 0; k < totalBoxes; k++) {
             var box = boxesData[k];
             var shapeLayer = comp.layers.addShape();
-            var phraseTag = "SMART_HL_PHRASE";
+            shapeLayer.name = box.name;
             var safePhrText = "";
             try { safePhrText = escape(box.phraseText); } catch(eEsc) { safePhrText = encodeURIComponent(box.phraseText); }
             shapeLayer.comment = phraseTag + "|id:" + box.phraseId + "|parent:" + textLayer.name + "|color:" + box.phraseColorHex + "|text:" + safePhrText + "|cs:" + box.charStart + "|ce:" + box.charEnd;
@@ -717,11 +800,16 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             var boxDelay = (isSequential && totalBoxes > 1) ? (k * 0.22) : 0;
             var outDur = 0.26;
 
-            // Opacity expression will be assigned after effect controls are created
-
             var boxMotion = box.motion || globalMotion;
             var styleRecipe = $._smartHighlighter.recipes.getStyle(box.style || data.style || "box");
             var motionRecipe = $._smartHighlighter.recipes.getMotion(boxMotion || "wipe");
+
+            var cStartPct = (box.charStart / totalTextChars) * 100;
+            var cEndPct = (box.charEnd / totalTextChars) * 100;
+            var wStartPct = ((typeof box.wordStart === "number" ? box.wordStart : 0) / totalWords) * 100;
+            var wEndPct = ((typeof box.wordEnd === "number" ? box.wordEnd : 1) / totalWords) * 100;
+            var lStartPct = ((typeof box.lineIndex === "number" ? box.lineIndex : 0) / totalLines) * 100;
+            var lEndPct = (((typeof box.lineIndex === "number" ? box.lineIndex : 0) + 1) / totalLines) * 100;
 
             var ctx = {
                 index: k,
@@ -734,15 +822,24 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                 style: styleRecipe,
                 motion: motionRecipe,
                 totalLines: totalLines,
+                totalSlots: (typeof box.totalSlots === "number" && box.totalSlots > 0) ? box.totalSlots : ((scan && typeof scan.totalSlots === "number") ? scan.totalSlots : totalLines),
+                slotIndex: (typeof box.slotIndex === "number") ? box.slotIndex : ((typeof box.lineIndex === "number") ? box.lineIndex : k),
                 totalWords: totalWords,
                 totalChars: totalTextChars,
                 baseFS: baseFS,
                 baseTotalH: baseTotalH,
+                baseTotalW: baseTotalW,
+                baseFullLeft: baseFullLeft,
+                baseFullTop: baseFullTop,
                 isCenter: isCenter,
                 timing: {
-                    revealUnit: "characters",
-                    cStartPct: (box.charStart / totalTextChars) * 100,
-                    cEndPct: (box.charEnd / totalTextChars) * 100
+                    revealUnit: revealUnit,
+                    cStartPct: cStartPct,
+                    cEndPct: cEndPct,
+                    wStartPct: wStartPct,
+                    wEndPct: wEndPct,
+                    lStartPct: lStartPct,
+                    lEndPct: lEndPct
                 },
                 boxOutroOrder: "first",
                 textOutroOrder: "first",
@@ -756,7 +853,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                 shapeLayer.blendingMode = BlendingMode.NORMAL;
             }
 
-            // Local Effect Controls (ØªÙˆØ§ÙÙ‚ÙŠØ© Ø¯ÙˆÙ„ÙŠØ© Ø¹Ø¨Ø± Ø§Ù„ÙÙ‡Ø±Ø³ 1)
+            // Local Effect Controls (توافقية دولية عبر الفهرس 1)
             var fx = shapeLayer.property("ADBE Effect Parade");
             var chk = fx.addProperty("ADBE Checkbox Control"); chk.name = "Use Master Controls";
             chk.property(1).setValue(0);
@@ -790,12 +887,36 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             var progFx = fx.addProperty("ADBE Slider Control"); progFx.name = "Progress";
             progFx.property(1).setValue(100);
 
-            if (box.motion === "typewriter" && hasOutro) {
-                var bCStartPct = (box.charStart / totalTextChars) * 100;
-                var bCEndPct = (box.charEnd / totalTextChars) * 100;
-                var bStartT = typeStartTime + (bCStartPct / 100) * typeTotalDur;
-                var bEndT = typeStartTime + (bCEndPct / 100) * typeTotalDur;
-                var tExitTime = bEndT + holdTime;
+            // Compute timing window for this phrase box (respecting Parallel mode if active on textLayer)
+            var lineNum = ((typeof box.lineIndex === "number") ? box.lineIndex : 0) + 1;
+            var lineInfo = scan.linesData[box.lineIndex || 0] || {};
+            var bStart, bEnd;
+
+            if (activeAnimInfo && activeAnimInfo.isParallel) {
+                var lTiming = (activeAnimInfo.lineTimings && activeAnimInfo.lineTimings[lineNum])
+                    ? activeAnimInfo.lineTimings[lineNum]
+                    : { startTime: typeStartTime, endTime: typeStartTime + typeTotalDur };
+                var lDur = Math.max(0.04, lTiming.endTime - lTiming.startTime);
+                var lCharStart = (typeof lineInfo.charStart === "number") ? lineInfo.charStart : 0;
+                var lCharEnd = (typeof lineInfo.charEnd === "number" && lineInfo.charEnd > lCharStart) ? lineInfo.charEnd : (lCharStart + 1);
+                var localFracStart = Math.max(0, Math.min(1, (box.charStart - lCharStart) / (lCharEnd - lCharStart)));
+                var localFracEnd = Math.max(0, Math.min(1, (box.charEnd - lCharStart) / (lCharEnd - lCharStart)));
+                bStart = lTiming.startTime + localFracStart * lDur;
+                bEnd = lTiming.startTime + localFracEnd * lDur;
+            } else if (activeAnimInfo && activeAnimInfo.hasAnimator) {
+                var pctStart = (revealUnit === "words") ? wStartPct : cStartPct;
+                var pctEnd = (revealUnit === "words") ? wEndPct : cEndPct;
+                bStart = typeStartTime + (pctStart / 100) * typeTotalDur;
+                bEnd = typeStartTime + (pctEnd / 100) * typeTotalDur;
+            } else {
+                // Static text layer (no typewriter animator on textLayer): animate phrase locally from comp.time
+                bStart = comp.time + boxDelay;
+                bEnd = bStart + 0.32;
+            }
+            if (bEnd <= bStart) bEnd = bStart + 0.04;
+
+            if (boxMotion === "typewriter" && hasOutro && (!activeAnimInfo || !activeAnimInfo.hasOutro)) {
+                var tExitTime = bEnd + holdTime;
                 xform.property("ADBE Opacity").expression =
                     'var prog = 100; try { prog = effect("Progress")(1); } catch(eP) {}\n' +
                     'var lOp = 100; try { lOp = effect("Local Opacity")(1); } catch(eL) {}\n' +
@@ -816,13 +937,6 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
 
             // Motion & Timing
             if (boxMotion === "typewriter") {
-                var cStartPct = (box.charStart / totalTextChars) * 100;
-                var cEndPct = (box.charEnd / totalTextChars) * 100;
-
-                var bStart = typeStartTime + (cStartPct / 100) * typeTotalDur;
-                var bEnd = typeStartTime + (cEndPct / 100) * typeTotalDur;
-                if (bEnd <= bStart) bEnd = bStart + 0.04;
-
                 progFx.property(1).setValueAtTime(bStart, 0);
                 progFx.property(1).setValueAtTime(bEnd, 100);
                 try {
@@ -830,31 +944,10 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                     progFx.property(1).setInterpolationTypeAtKey(2, KeyframeInterpolationType.LINEAR);
                 } catch (eLin) {}
 
-                var progExpr =
-                    'var pLayer = hasParent ? parent : null;\n' +
-                    'if (!pLayer) value;\n' +
-                    'var anim = null;\n' +
-                    'try { anim = pLayer.text.animator("Typewriter Sync"); } catch(e) {}\n' +
-                    'if (!anim) { try { anim = pLayer.text.animator("Typewriter"); } catch(e2) {} }\n' +
-                    'if (anim && anim.numProperties >= 1) {\n' +
-                    '    try {\n' +
-                    '        var sel = anim.property("ADBE Text Selectors").property(1);\n' +
-                    '        var pVal = 0;\n' +
-                    '        var pStart = null; try { pStart = sel.property("ADBE Text Percent Start"); } catch(e1) { try { pStart = sel.property("Start"); } catch(e11) {} }\n' +
-                    '        var pEnd = null; try { pEnd = sel.property("ADBE Text Percent End"); } catch(e2) { try { pEnd = sel.property("End"); } catch(e22) {} }\n' +
-                    '        if (pStart && pStart.numKeys > 0) { pVal = pStart.value; }\n' +
-                    '        else if (pEnd && pEnd.numKeys > 0) { pVal = pEnd.value; }\n' +
-                    '        else if (pStart) { pVal = pStart.value; }\n' +
-                    '        else if (pEnd) { pVal = pEnd.value; }\n' +
-                    '        var c1 = ' + cStartPct.toFixed(4) + ';\n' +
-                    '        var c2 = ' + cEndPct.toFixed(4) + ';\n' +
-                    '        (pVal <= c1) ? 0 : ((pVal >= c2) ? 100 : linear(pVal, c1, c2, 0, 100));\n' +
-                    '    } catch(err) { value; }\n' +
-                    '} else {\n' +
-                    '    value;\n' +
-                    '}';
-                progFx.property(1).expression = progExpr;
-
+                var twRecipe = $._smartHighlighter.recipes.getMotion("typewriter");
+                if (twRecipe && twRecipe.getProgressExpression) {
+                    progFx.property(1).expression = twRecipe.getProgressExpression(ctx);
+                }
             } else if (boxMotion === "pop") {
                 var t1 = comp.time + boxDelay;
                 var t2 = t1 + 0.26;
@@ -867,48 +960,10 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                     progFx.property(1).setValueAtTime(t4, 0);
                 }
 
-                var popExpr =
-                    'var p = 100; try { p = effect("Progress")(1); } catch(eP) {}\n' +
-                    'var outVal = [100, 100];\n' +
-                    'if (p.numKeys >= 2) {\n' +
-                    '    var k1 = p.key(1);\n' +
-                    '    var k2 = p.key(2);\n' +
-                    '    if (time < k1.time) {\n' +
-                    '        outVal = [0, 0];\n' +
-                    '    } else if (time <= k2.time) {\n' +
-                    '        var tNorm = (time - k1.time) / Math.max(0.001, (k2.time - k1.time));\n' +
-                    '        var s = easeOut(tNorm, 0, 1, 0, 118);\n' +
-                    '        outVal = [s, s];\n' +
-                    '    } else {\n' +
-                    '        var hasExit = (p.numKeys >= 4);\n' +
-                    '        var k3 = hasExit ? p.key(3) : null;\n' +
-                    '        var k4 = hasExit ? p.key(4) : null;\n' +
-                    '        if (hasExit && time >= k4.time) {\n' +
-                    '            outVal = [0, 0];\n' +
-                    '        } else if (hasExit && time >= k3.time) {\n' +
-                    '            var tOutNorm = (time - k3.time) / Math.max(0.001, (k4.time - k3.time));\n' +
-                    '            var sOut = easeIn(tOutNorm, 0, 1, 100, 0);\n' +
-                    '            outVal = [sOut, sOut];\n' +
-                    '        } else {\n' +
-                    '            var t = time - k2.time;\n' +
-                    '            if (t < 0.55) {\n' +
-                    '                var freq = 4.2;\n' +
-                    '                var decay = 7.5;\n' +
-                    '                var amp = 18.0;\n' +
-                    '                var w = amp * Math.cos(freq * t * 2 * Math.PI) / Math.exp(decay * t);\n' +
-                    '                outVal = [100 + w, 100 + w];\n' +
-                    '            } else {\n' +
-                    '                outVal = [100, 100];\n' +
-                    '            }\n' +
-                    '        }\n' +
-                    '    }\n' +
-                    '} else {\n' +
-                    '    var prog = p.value;\n' +
-                    '    outVal = (prog <= 0) ? [0, 0] : [100, 100];\n' +
-                    '}\n' +
-                    'outVal;';
-                xform.property("ADBE Scale").expression = popExpr;
-
+                var popRecipe = $._smartHighlighter.recipes.getMotion("pop");
+                if (popRecipe && popRecipe.applyTransformScale) {
+                    popRecipe.applyTransformScale(xform.property("ADBE Scale"), ctx);
+                }
             } else if (boxMotion === "snap") {
                 var t1 = comp.time + boxDelay;
                 var t2 = t1 + 0.04;
@@ -920,7 +975,6 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                     progFx.property(1).setValueAtTime(t3, 100);
                     progFx.property(1).setValueAtTime(t4, 0);
                 }
-
             } else {
                 // Smooth Vox Wipe: punchy attack, luxurious deceleration
                 var t1 = comp.time + boxDelay;
@@ -990,7 +1044,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
 };
 
 /**
- * Ø¥Ø²Ø§Ù„Ø© Ø¬Ù…ÙŠØ¹ ØµÙ†Ø§Ø¯ÙŠÙ‚ ØªØ¸Ù„ÙŠÙ„ Ø§Ù„Ø¹Ø¨Ø§Ø±Ø§Øª (Phrase Highlights) Ù…Ù† Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ Ø§Ù„Ù…Ø­Ø¯Ø¯Ø©
+ * إزالة جميع صناديق تظليل العبارات (Phrase Highlights) من طبقة النص المحددة
  */
 $._smartHighlighter.clearPhraseHighlights = function () {
     try {
@@ -1049,8 +1103,8 @@ $._smartHighlighter.clearPhraseHighlights = function () {
 };
 
 /**
- * Ø§Ø³ØªØ®Ø±Ø§Ø¬ Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„Ø¹Ø¨Ø§Ø±Ø§Øª Ø§Ù„Ù…Ø¸Ù„Ù„Ø© Ø­Ø§Ù„ÙŠØ§Ù‹ Ø¹Ù„Ù‰ Ø§Ù„Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†ØµÙŠØ© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø©
- * ØªØ±Ø¬Ø¹ Ù…ØµÙÙˆÙØ© JSON ØªØ­ØªÙˆÙŠ Ø¹Ù„Ù‰ Ù…Ø¹Ø±Ù ÙƒÙ„ Ø¹Ø¨Ø§Ø±Ø©ØŒ Ù†ØµÙ‡Ø§ØŒ ÙˆÙ„ÙˆÙ†Ù‡Ø§ØŒ ÙˆØ¥Ø­Ø¯Ø§Ø«ÙŠØ§ØªÙ‡Ø§
+ * استخراج قائمة العبارات المظللة حالياً على الطبقة النصية المحددة
+ * ترجع مصفوفة JSON تحتوي على معرف كل عبارة، نصها، ولونها، وإحداثياتها
  */
 $._smartHighlighter.getAppliedPhrases = function (targetLayerName) {
     try {
@@ -1232,7 +1286,7 @@ $._smartHighlighter.getAppliedPhrases = function (targetLayerName) {
 };
 
 /**
- * Ø­Ø°Ù Ø¹Ø¨Ø§Ø±Ø© Ù…Ø¸Ù„Ù„Ø© Ù…Ø­Ø¯Ø¯Ø© Ø¨Ø­Ø³Ø¨ Ù…Ø¹Ø±ÙÙ‡Ø§ Ø§Ù„ÙØ±ÙŠØ¯ Ø¯ÙˆÙ† Ø§Ù„ØªØ£Ø«ÙŠØ± Ø¹Ù„Ù‰ Ø§Ù„Ø¹Ø¨Ø§Ø±Ø§Øª Ø§Ù„Ø£Ø®Ø±Ù‰
+ * حذف عبارة مظللة محددة بحسب معرفها الفريد دون التأثير على العبارات الأخرى
  */
 $._smartHighlighter.removeSinglePhrase = function (phraseId) {
     try {

@@ -12,13 +12,14 @@
     HS.csInterface = csInterface;
 
     HS.Bridge = {
-        // Ensure hostscript.jsx is live loaded from disk
         ensureLoaded: function (callback) {
             try {
                 var extPath = csInterface.getSystemPath(SystemPath.EXTENSION);
                 if (extPath) {
-                    var scriptPath = (extPath + "/host/hostscript.jsx").replace(/\\/g, "/");
-                    csInterface.evalScript('$.evalFile("' + scriptPath + '")', function () {
+                    var hostFolder = (extPath + "/host").replace(/\\/g, "/");
+                    var scriptPath = hostFolder + "/hostscript.jsx";
+                    var cmd = 'try { Folder.current = new Folder("' + hostFolder + '"); $.evalFile(new File("' + scriptPath + '")); "LOADED_OK"; } catch(e) { "ERR: " + e.toString(); }';
+                    csInterface.evalScript(cmd, function () {
                         if (callback) callback();
                     });
                     return;
