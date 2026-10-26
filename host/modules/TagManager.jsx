@@ -1,7 +1,7 @@
 /**
  * OPENBOX - Host Engine
  * Module: TagManager.jsx
- * Version: 2.2.0 (Non-Destructive Additive Phrase Engine & Exact In-Box Word Sync)
+ * Version: 2.5.0 (RTL Solid-Anchor Margin Guarantee & In-Paragraph Word Geometry)
  * 
  * Manages tagged word parsing ([word], *word*, {word}), word stripping,
  * and multi-mode target box resolution (lines, tagged keywords, karaoke words).
@@ -92,7 +92,7 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
     // دالة موحدة لبناء بيانات صندوق السطر مع ضمان الاصطفاف العمودي للبداية والاحتواء الكامل للنهاية
     var buildLineBoxEntry = function (kIdx) {
         var ld = scan.linesData[kIdx];
-        var rtl_k = isCenter ? false : ((data.direction === "auto") ? (scan.isJustified ? (scan.justifyType === "right") : $._smartHighlighter.lineIsRTL(ld.text, fallbackRTL)) : (data.direction === "rtl"));
+        var rtl_k = isCenter ? false : ((data.direction === "ltr") ? false : ((data.direction === "rtl") ? true : (scan.isJustified ? (scan.justifyType === "right") : $._smartHighlighter.lineIsRTL(ld.text, fallbackRTL))));
         var cStart = (typeof ld.charStart === "number") ? ld.charStart : 0;
         var cEnd = (typeof ld.charEnd === "number") ? ld.charEnd : (cStart + ld.text.length);
 
@@ -136,9 +136,9 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
             // الحد الأقصى لامتصاص فرق البداية في الأسطر غير البادئة بمسافات:
             // في الأسطر الوسيطة الملتفة داخل Area Text، ندمج rOff (أو lOff) ضمن عرض الصندوق ليظل الطرف الأيمن
             // مصطفاً كالمسطرة عند هامش الحاوية بينما يصل الطرف الأيسر إلى الحافة الفعلية لآخر كلمة ("آخرين") دون قطع
-            var maxFlushAbsorb = (scan.isBoxText && !ld.isLastOfPara && !hasLeadingIndent)
-                ? Math.max(8.0, (scan.fontSize || 40) * 0.9)
-                : (!hasLeadingIndent ? 8.0 : 4.0);
+            var maxFlushAbsorb = (!hasLeadingIndent)
+                ? Math.max(12.0, (scan.fontSize || 40) * 0.95)
+                : 4.0;
 
             if (scan.isJustified) {
                 // في النصوص المضبوطة: نعتمد عرض التخطيط للأسطر الممتدة
@@ -166,16 +166,30 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
                     }
                 }
             } else if (rtl_k) {
-                // RTL (Arabic): دمج إزاحة البداية اليمنى ضمن عرض الصندوق للحفاظ على اصطفاف اليمين وتغطية كامل النص يساراً
-                if (rOff > 0 && rOff <= maxFlushAbsorb) {
+                // RTL (Arabic): في الأسطر غير البادئة بمسافات، نقفل اليمين 100% كالمسطرة (rOff = 0) وندمج أي فرق ضمن العرض
+                if (!hasLeadingIndent) {
+                    if (rOff > 0) {
+                        var prevWR2 = boxWidth;
+                        boxWidth = Math.round((boxWidth + rOff) * 10) / 10;
+                        scaleLineOffsetsToWidth(prevWR2, boxWidth);
+                    }
+                    rOff = 0;
+                } else if (rOff > 0 && rOff <= maxFlushAbsorb) {
                     var prevWR2 = boxWidth;
                     boxWidth = Math.round((boxWidth + rOff) * 10) / 10;
                     scaleLineOffsetsToWidth(prevWR2, boxWidth);
                     rOff = 0;
                 }
             } else {
-                // LTR (Latin): دمج إزاحة البداية اليسرى ضمن عرض الصندوق للحفاظ على اصطفاف اليسار وتغطية كامل النص يميناً
-                if (lOff > 0 && lOff <= maxFlushAbsorb) {
+                // LTR (Latin): في الأسطر غير البادئة بمسافات، نقفل اليسار 100% كالمسطرة (lOff = 0) وندمج أي فرق ضمن العرض
+                if (!hasLeadingIndent) {
+                    if (lOff > 0) {
+                        var prevWL2 = boxWidth;
+                        boxWidth = Math.round((boxWidth + lOff) * 10) / 10;
+                        scaleLineOffsetsToWidth(prevWL2, boxWidth);
+                    }
+                    lOff = 0;
+                } else if (lOff > 0 && lOff <= maxFlushAbsorb) {
                     var prevWL2 = boxWidth;
                     boxWidth = Math.round((boxWidth + lOff) * 10) / 10;
                     scaleLineOffsetsToWidth(prevWL2, boxWidth);
@@ -228,17 +242,51 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
             tempWord.enabled = true;
             tempWord.guideLayer = true;
 
+            var applySafeWordBox = function (docObj) {
+                if (!docObj || !docObj.boxText) return;
+                var candidates = [[8000, 8000], [6000, 6000], [4096, 4096], [100000, 100000]];
+                for (var ci = 0; ci < candidates.length; ci++) {
+                    try {
+                        docObj.boxTextSize = candidates[ci];
+                        return;
+                    } catch (eLim) {}
+                }
+            };
+
             var setTempWordText = function (str) {
                 try {
                     var wd = srcPropWord.value;
                     if (wd && wd.boxText) {
-                        wd.boxTextSize = [100000, 100000];
+                        applySafeWordBox(wd);
                     }
                     wd.text = str;
                     tempWord.property("Source Text").setValue(wd);
                 } catch (eWd) {
-                    try { tempWord.property("Source Text").setValue(str); } catch (eWd2) {}
+                    try {
+                        var wdFb = tempWord.property("Source Text").value;
+                        if (wdFb && wdFb.boxText) applySafeWordBox(wdFb);
+                        wdFb.text = str;
+                        tempWord.property("Source Text").setValue(wdFb);
+                    } catch (eWd2) {}
                 }
+            };
+
+            var alefW = (scan && typeof scan.alefAnchorW === "number" && scan.alefAnchorW > 0) ? scan.alefAnchorW : 0;
+            if (alefW <= 0) {
+                setTempWordText("ا");
+                alefW = Math.max(1, tempWord.sourceRectAtTime(comp.time, false).width);
+            }
+
+            var measureWordSpan = function (str, anchorLeadingDigitsRTL) {
+                if (!str || str.length === 0) return { width: 0, height: 0 };
+                if (anchorLeadingDigitsRTL && /^[0-9\s.,:;!?\-\(\)\[\]+%$]+/.test(str)) {
+                    setTempWordText("ا" + str);
+                    var rA = tempWord.sourceRectAtTime(comp.time, false);
+                    return { width: Math.max(0, rA.width - alefW), height: rA.height };
+                }
+                setTempWordText(str);
+                var rN = tempWord.sourceRectAtTime(comp.time, false);
+                return { width: rN.width, height: rN.height };
             };
 
             for (var lIdx = 0; lIdx < scan.numLines; lIdx++) {
@@ -296,19 +344,32 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
 
                 for (var wIdx = 0; wIdx < wordsToFind.length; wIdx++) {
                     var item = wordsToFind[wIdx];
+                    var prefixBefore = (item.charIdx > 0) ? lText.substring(0, item.charIdx) : "";
                     var prefixUpTo = lText.substring(0, item.charIdx + item.phrase.length);
+                    var suffixFrom = lText.substring(item.charIdx);
 
-                    setTempWordText(prefixUpTo);
-                    var rUpTo = tempWord.sourceRectAtTime(comp.time, false);
+                    var rUpTo = measureWordSpan(prefixUpTo, rtl_line);
+                    var rWord = measureWordSpan(item.phrase, false);
 
-                    setTempWordText(item.phrase);
-                    var rWord = tempWord.sourceRectAtTime(comp.time, false);
+                    var offsetFromPrefix = (item.charIdx <= 0) ? 0 : Math.max(0, rUpTo.width - rWord.width);
+                    var rawWOffset = offsetFromPrefix;
 
-                    var rawWOffset = (item.charIdx <= 0) ? 0 : Math.max(0, rUpTo.width - rWord.width);
-                    var spacesBeforeWord = (item.charIdx > 0) ? (lText.substring(0, item.charIdx).match(/\s+/g) || []).length : 0;
+                    // إذا كانت البادئة تحتوي على أرقام لاتينية (مثل "53" أو "200") بينما اللاحقة عربية خالصة،
+                    // نستخدم القياس التفاضلي العكسي من نهاية السطر (Suffix Triangulation) لتحييد أي قفزة BiDi للأرقام!
+                    if (rtl_line && item.charIdx > 0 && /[0-9]/.test(prefixBefore) && !/[0-9]/.test(suffixFrom)) {
+                        var rSuffix = measureWordSpan(suffixFrom, false);
+                        if (rSuffix.width >= rWord.width && lineRawW >= rSuffix.width) {
+                            rawWOffset = Math.max(0, lineRawW - rSuffix.width);
+                        }
+                    }
+
+                    var spacesBeforeWord = (item.charIdx > 0) ? (prefixBefore.match(/\s+/g) || []).length : 0;
                     var spacesInsideWord = (item.phrase.match(/\s+/g) || []).length;
                     var wOffset = Math.max(0, Math.round((rawWOffset + spacesBeforeWord * deltaPerSpace) * 10) / 10);
                     var finalWordW = Math.max(1, Math.round((rWord.width + spacesInsideWord * deltaPerSpace) * 10) / 10);
+                    if (wOffset + finalWordW > lineObj.width + 1) {
+                        wOffset = Math.max(0, Math.round((lineObj.width - finalWordW) * 10) / 10);
+                    }
                     var finalWordH = Math.max(rWord.height, lineObj.height * 0.9);
 
                     var wordCharStart = (typeof lineObj.charStart === "number") ? (lineObj.charStart + item.charIdx) : item.charIdx;
@@ -521,17 +582,64 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                 }
             } catch (eTwAnim) {}
 
+            var applySafePhraseBox = function (docObj) {
+                if (!docObj || !docObj.boxText) return;
+                var candidates = [[8000, 8000], [6000, 6000], [4096, 4096], [100000, 100000]];
+                for (var ci = 0; ci < candidates.length; ci++) {
+                    try {
+                        docObj.boxTextSize = candidates[ci];
+                        return;
+                    } catch (eLim) {}
+                }
+            };
+
+            var origPhraseBoxSize = null;
+            try {
+                var initPtwDoc = srcPropPhrase.value;
+                if (initPtwDoc && initPtwDoc.boxText && initPtwDoc.boxTextSize) {
+                    origPhraseBoxSize = [initPtwDoc.boxTextSize[0], initPtwDoc.boxTextSize[1]];
+                }
+            } catch (eOrigPtw) {}
+
+            var useExpandedPhraseBox = true;
             var setTempWordText = function (str) {
                 try {
                     var wd = srcPropPhrase.value;
                     if (wd && wd.boxText) {
-                        wd.boxTextSize = [100000, 100000];
+                        if (useExpandedPhraseBox) {
+                            applySafePhraseBox(wd);
+                        } else if (origPhraseBoxSize !== null) {
+                            try { wd.boxTextSize = [origPhraseBoxSize[0], origPhraseBoxSize[1]]; } catch (eOB) {}
+                        }
                     }
                     wd.text = str;
                     tempWord.property("Source Text").setValue(wd);
                 } catch (eWd) {
-                    try { tempWord.property("Source Text").setValue(str); } catch (eWd2) {}
+                    try {
+                        var wdFb = tempWord.property("Source Text").value;
+                        if (useExpandedPhraseBox && wdFb && wdFb.boxText) applySafePhraseBox(wdFb);
+                        wdFb.text = str;
+                        tempWord.property("Source Text").setValue(wdFb);
+                    } catch (eWd2) {}
                 }
+            };
+
+            var phrAlefW = (scan && typeof scan.alefAnchorW === "number" && scan.alefAnchorW > 0) ? scan.alefAnchorW : 0;
+            if (phrAlefW <= 0) {
+                setTempWordText("ا");
+                phrAlefW = Math.max(1, tempWord.sourceRectAtTime(comp.time, false).width);
+            }
+
+            var measurePhraseSpan = function (str, anchorLeadingDigitsRTL) {
+                if (!str || str.length === 0) return { width: 0, height: 0 };
+                if (anchorLeadingDigitsRTL && /^[0-9\s.,:;!?\-\(\)\[\]+%$]+/.test(str)) {
+                    setTempWordText("ا" + str);
+                    var rA = tempWord.sourceRectAtTime(comp.time, false);
+                    return { width: Math.max(0, rA.width - phrAlefW), height: rA.height };
+                }
+                setTempWordText(str);
+                var rN = tempWord.sourceRectAtTime(comp.time, false);
+                return { width: rN.width, height: rN.height };
             };
 
             for (var pIdx = 0; pIdx < data.phrases.length; pIdx++) {
@@ -569,27 +677,77 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                 localEnd -= trailWs;
                                 subPhrase = subPhrase.substring(leadWs, subPhrase.length - trailWs);
 
+                                // Determine true reading direction of the line first
+                                var rtl_line = (data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (scan.isJustified ? (scan.justifyType === "right" ? true : (scan.justifyType === "left" ? false : $._smartHighlighter.lineIsRTL(lText, fallbackRTL))) : $._smartHighlighter.lineIsRTL(lText, fallbackRTL)));
+
                                 // Compute exact word-spacing expansion delta from Area Text Paragraph Composer
                                 var phrLineRawW = (typeof lineObj.rawWidth === "number" && lineObj.rawWidth > 0) ? lineObj.rawWidth : lineObj.width;
                                 var extraLineW = lineObj.width - phrLineRawW;
                                 var totalSpacesInLine = (lText.match(/\s+/g) || []).length;
                                 var deltaPerSpace = (totalSpacesInLine > 0 && Math.abs(extraLineW) > 0.2) ? (extraLineW / totalSpacesInLine) : 0;
 
-                                var prefixUpTo = lText.substring(0, localStart + subPhrase.length);
-                                setTempWordText(prefixUpTo);
-                                var rUpTo = tempWord.sourceRectAtTime(comp.time, false);
+                                // 1. Try Exact In-Paragraph Bilateral Shift Isolation first (zero composer drift, zero BiDi shift!)
+                                var isoPhraseBounds = null;
+                                if (scan.isBoxText && $._smartHighlighter.createBilateralIsolator && lineObj.paraText && typeof lineObj.paraCharStart === "number") {
+                                    useExpandedPhraseBox = false;
+                                    setTempWordText(lineObj.paraText);
+                                    var phrIso = $._smartHighlighter.createBilateralIsolator(tempWord, comp.time);
+                                    if (phrIso) {
+                                        var rFullRef = (typeof scan.fullLeft === "number" && typeof scan.fullW === "number")
+                                            ? { left: scan.fullLeft, width: scan.fullW }
+                                            : null;
+                                        isoPhraseBounds = phrIso.measureRange(
+                                            lineObj.paraCharStart + localStart,
+                                            lineObj.paraCharStart + localEnd,
+                                            lineObj.paraText.length,
+                                            rFullRef
+                                        );
+                                        phrIso.dispose();
+                                    }
+                                    useExpandedPhraseBox = true;
+                                }
 
-                                setTempWordText(subPhrase);
-                                var rWord = tempWord.sourceRectAtTime(comp.time, false);
+                                var prefixBefore = (localStart > 0) ? lText.substring(0, localStart) : "";
+                                var wOffset = 0;
+                                var finalW = 10;
+                                var finalH = lineObj.height;
 
-                                // rUpTo.width - rWord.width retains all spaces before subPhrase without trailing-space stripping
-                                var rawWOffset = (localStart <= 0) ? 0 : Math.max(0, rUpTo.width - rWord.width);
-                                var spacesBeforePhrase = (localStart > 0) ? (lText.substring(0, localStart).match(/\s+/g) || []).length : 0;
-                                var spacesInsidePhrase = (subPhrase.match(/\s+/g) || []).length;
+                                if (isoPhraseBounds && isoPhraseBounds.width > 0.5) {
+                                    finalW = Math.max(1, Math.round(isoPhraseBounds.width * 10) / 10);
+                                    finalH = Math.max(isoPhraseBounds.height, lineObj.height * 0.9);
+                                    var lineRightCoord = ((typeof scan.fullRight === "number") ? scan.fullRight : (scan.fullLeft + scan.fullW)) - ((typeof lineObj.rightOffset === "number") ? lineObj.rightOffset : 0);
+                                    var lineLeftCoord = ((typeof scan.fullLeft === "number") ? scan.fullLeft : 0) + ((typeof lineObj.leftOffset === "number") ? lineObj.leftOffset : 0);
+                                    if (rtl_line) {
+                                        wOffset = Math.max(0, Math.round((lineRightCoord - isoPhraseBounds.right) * 10) / 10);
+                                    } else {
+                                        wOffset = Math.max(0, Math.round((isoPhraseBounds.left - lineLeftCoord) * 10) / 10);
+                                    }
+                                } else {
+                                    var prefixUpTo = lText.substring(0, localStart + subPhrase.length);
+                                    var suffixFrom = lText.substring(localStart);
 
-                                var wOffset = Math.max(0, Math.round((rawWOffset + spacesBeforePhrase * deltaPerSpace) * 10) / 10);
-                                var finalW = Math.max(1, Math.round((rWord.width + spacesInsidePhrase * deltaPerSpace) * 10) / 10);
-                                var finalH = Math.max(rWord.height, lineObj.height * 0.9);
+                                    var rUpTo = measurePhraseSpan(prefixUpTo, rtl_line);
+                                    var rWord = measurePhraseSpan(subPhrase, false);
+
+                                    var rawWOffset = (localStart <= 0) ? 0 : Math.max(0, rUpTo.width - rWord.width);
+
+                                    if (rtl_line && localStart > 0 && /[0-9]/.test(prefixBefore) && !/[0-9]/.test(suffixFrom)) {
+                                        var rSuffix = measurePhraseSpan(suffixFrom, false);
+                                        if (rSuffix.width >= rWord.width && phrLineRawW >= rSuffix.width) {
+                                            rawWOffset = Math.max(0, phrLineRawW - rSuffix.width);
+                                        }
+                                    }
+
+                                    var spacesBeforePhrase = (localStart > 0) ? (prefixBefore.match(/\s+/g) || []).length : 0;
+                                    var spacesInsidePhrase = (subPhrase.match(/\s+/g) || []).length;
+
+                                    wOffset = Math.max(0, Math.round((rawWOffset + spacesBeforePhrase * deltaPerSpace) * 10) / 10);
+                                    finalW = Math.max(1, Math.round((rWord.width + spacesInsidePhrase * deltaPerSpace) * 10) / 10);
+                                    if (wOffset + finalW > lineObj.width + 1) {
+                                        wOffset = Math.max(0, Math.round((lineObj.width - finalW) * 10) / 10);
+                                    }
+                                    finalH = Math.max(rWord.height, lineObj.height * 0.9);
+                                }
 
                                 // Word-level start/end indices for accurate synchronization when Typewriter is in Words mode
                                 var wordsBeforeOnLine = (localStart > 0) ? (lText.substring(0, localStart).match(/\S+/g) || []).length : 0;
@@ -620,8 +778,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                     wordCOffsets[wordCOffsets.length - 1] = Math.round(finalW * 10) / 10;
                                 }
 
-                                // Determine true reading direction of the line (never force false on Center-aligned Arabic lines!)
-                                var rtl_line = (data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (scan.isJustified ? (scan.justifyType === "right" ? true : (scan.justifyType === "left" ? false : $._smartHighlighter.lineIsRTL(lText, fallbackRTL))) : $._smartHighlighter.lineIsRTL(lText, fallbackRTL)));
+                                // Reading direction rtl_line already resolved above
                                 var wordHasArabic = $._smartHighlighter.hasArabic(subPhrase);
                                 var box_rtl = (data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (wordHasArabic ? true : (/[A-Za-z]/.test(subPhrase) ? false : rtl_line)));
 

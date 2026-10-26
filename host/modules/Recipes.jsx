@@ -426,7 +426,7 @@ var getStandardPositionSnippet = function (ctx) {
 
     if (hasStaticBounds) {
         posSnippet +=
-            '    if (r.width < ' + (safeBaseTotalW * 0.65).toFixed(2) + ' * fontRatio) {\n' +
+            '    if (r.width <= 0.5 || r.height <= 0.5) {\n' +
             '        r = { left: ' + safeBaseLeft.toFixed(2) + ' * fontRatio, top: ' + safeBaseTop.toFixed(2) + ' * fontRatio, width: ' + safeBaseTotalW.toFixed(2) + ' * fontRatio, height: ' + safeBaseTotalH.toFixed(2) + ' * fontRatio };\n' +
             '    }\n';
     }

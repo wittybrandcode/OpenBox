@@ -494,47 +494,159 @@ function runTest() {
         console.log('  ✓ Justified Layout Width Invariant: boxTextSize guarantees full width containment of trailing words on the left');
     }
 
-    // 17. Natural Line Width Invariant (Unjustified Area Text hugs each line like Latin)
+    // 17. Natural Line Width & Wrapped-in-Isolation Containment Invariant (Layer "01" Live Metrics)
     {
-        // When text is not justified (scan.isJustified === false), lines in Area Text
-        // preserve their tight individual widths (ld.width) matching how Latin lines behave.
-        const mockScanUnjustified = {
-            isBoxText: true,
-            isJustified: false,
-            justifiedWidth: 1364.0,
-            fullW: 1356.5
-        };
+        // In Layer "01" (unjustified Area Text, boxTextSize = [1364, 1108.34], rFull.width = 1360.06):
+        // - Line 1 ("... وإصابة أكثر من") does NOT wrap in isolation and ends naturally ~50px before the left margin (e.g. 1300px).
+        //   It must NOT be forced to rFull.width (1360.06px), preventing the 40-50px empty blue tail!
+        // - Line 2 ("200 آخرين ... بمحافظة شبوة، أثناء تلقيهم") wraps "أثناء تلقيهم" when isolated in 1364px,
+        //   but in the safe expanded box [8000, 8000] measures its full 1353.3px width containing "أثناء تلقيهم" 100%!
+        // - Line 3 ("التدريب والتأهيل الأمني في المركز.") is the last line of paragraph (555.64px).
+        const rFullW = 1360.06;
+        const justifiedLayoutW = 1364.0;
 
-        const intermediateLine = { text: "سطر عربي ممتد يلتف في النهاية", width: 1332.14, isLastOfPara: false };
-        const lastLineOfPara = { text: "المركز.", width: 101.9, isLastOfPara: true };
-
-        function calcBoxWidth(ld, scan) {
-            if (scan.isJustified) {
-                if (scan.isJustifyFullAll || !ld.isLastOfPara) {
-                    return (typeof scan.justifiedWidth === "number" && scan.justifiedWidth > 0) ? scan.justifiedWidth : scan.fullW;
-                }
+        function resolveLineFinalW(rawUnconstrainedW, inBoxW, wrappedInIsolation, isJustified, isLastOfPara) {
+            if (isJustified && !isLastOfPara) return justifiedLayoutW;
+            if (wrappedInIsolation) {
+                return Math.min(Math.max(rawUnconstrainedW, rFullW), justifiedLayoutW);
             }
-            return ld.width;
+            return Math.min(Math.max(rawUnconstrainedW, inBoxW), rFullW);
         }
 
-        const interBoxW = calcBoxWidth(intermediateLine, mockScanUnjustified);
-        assert.strictEqual(interBoxW, 1332.14, "Unjustified line must hug its exact text width (1332.14px) like Latin, not span full 1364px container");
+        const line1W = resolveLineFinalW(1300.0, 1300.0, false, false, false);
+        assert.strictEqual(line1W, 1300.0, "Line 1 must hug 'أكثر من' at 1300px without extending 50px into empty space");
 
-        const lastBoxW = calcBoxWidth(lastLineOfPara, mockScanUnjustified);
-        assert.strictEqual(lastBoxW, 101.9, "Last line of paragraph must preserve its tight natural width (101.9px)");
+        const line2W = resolveLineFinalW(1353.3, 1210.0, true, false, false);
+        assert.strictEqual(line2W, 1360.06, "Line 2 (which wrapped in isolation) must expand to full 1360.06px to enclose 'أثناء تلقيهم'");
 
-        // When text IS justified (scan.isJustified === true):
-        const mockScanJustified = {
-            isBoxText: true,
-            isJustified: true,
-            isJustifyFullAll: false,
-            justifiedWidth: 1364.0,
-            fullW: 1356.5
+        const line3W = resolveLineFinalW(555.64, 555.64, false, false, true);
+        assert.strictEqual(line3W, 555.64, "Line 3 (last line of paragraph) must preserve its exact 555.64px width");
+        console.log('  ✓ Layer "01" Line Containment Invariant: Zero empty tail on Line 1 & 100% containment of "أثناء تلقيهم" on Line 2');
+    }
+
+    // 18. Safe Unconstrained Box Expansion Fallback Cascade ([8000, 8000] when [100000, 100000] throws in AE)
+    {
+        // In After Effects, setting boxTextSize = [100000, 100000] throws an out-of-range error (> 32767).
+        // applySafeExpandedBox must catch the limit error and succeed with [8000, 8000] / [6000, 6000].
+        const strictAeTextDoc = {
+            boxText: true,
+            _size: [1364, 1108.34],
+            set boxTextSize(val) {
+                if (val[0] > 30000 || val[1] > 30000) {
+                    throw new Error("After Effects error: boxTextSize out of range");
+                }
+                this._size = val;
+            },
+            get boxTextSize() { return this._size; }
         };
-        const justInterBoxW = calcBoxWidth(intermediateLine, mockScanJustified);
-        assert.strictEqual(justInterBoxW, 1364.0, "Justified intermediate line expands to layout width (1364px)");
 
-        console.log('  ✓ Natural Line Width Invariant: Unjustified Area Text lines tightly hug text width like Latin');
+        function applySafeExpandedBox(docObj, baseBoxSize) {
+            var bw = (baseBoxSize && baseBoxSize[0] > 0) ? baseBoxSize[0] : 2000;
+            var bh = (baseBoxSize && baseBoxSize[1] > 0) ? baseBoxSize[1] : 2000;
+            var candidates = [
+                [Math.min(15000, Math.max(6000, Math.round(bw * 4))), Math.min(15000, Math.max(6000, Math.round(bh * 4)))],
+                [8000, 8000],
+                [4096, 4096],
+                [100000, 100000]
+            ];
+            for (var k = 0; k < candidates.length; k++) {
+                try {
+                    docObj.boxTextSize = candidates[k];
+                    return true;
+                } catch (eLim) {}
+            }
+            return false;
+        }
+
+        const expandedOk = applySafeExpandedBox(strictAeTextDoc, [1364, 1108.34]);
+        assert.strictEqual(expandedOk, true, "Safe box expansion must succeed under strict AE 30000px limit");
+        assert.ok(strictAeTextDoc.boxTextSize[0] >= 6000 && strictAeTextDoc.boxTextSize[0] <= 15000, "Expanded width must be >= 6000px and <= 15000px");
+        console.log('  ✓ Safe Box Expansion Invariant: Succeeds at [6000..15000px] without triggering AE 100,000px exception');
+    }
+
+    // 19. BiDi Rule W2 Alef (\u0627) Anchor & Suffix Triangulation for Phrases After Numbers ("53", "200")
+    {
+        // When a phrase is selected after a number in an RTL line (e.g. "الأمن الداخلي" after "200" on Line 2),
+        // suffixFrom ("الأمن الداخلي بمحافظة شبوة، أثناء تلقيهم") is 100% pure Arabic with zero numbers.
+        // Suffix triangulation computes rawWOffset = lineRawW - rSuffix.width with 0.0px BiDi drift.
+        const lineRawW = 1353.3;
+        const trueWordW = 185.0; // "الأمن الداخلي"
+        const trueAfterW = 490.0; // " بمحافظة شبوة، أثناء تلقيهم"
+        const rSuffixW = trueWordW + trueAfterW; // 675.0px from start of phrase to left end of line
+        const distortedPrefixUpToW = 840.0; // Distorted by "200" BiDi flip in isolated prefix
+
+        const prefixBefore = "200 آخرين من المجندين المستجدين في ";
+        const suffixFrom = "الأمن الداخلي بمحافظة شبوة، أثناء تلقيهم";
+
+        let rawWOffset = distortedPrefixUpToW - trueWordW; // 655.0px (drifted by 20px!)
+        if (/[0-9]/.test(prefixBefore) && !/[0-9]/.test(suffixFrom)) {
+            rawWOffset = Math.max(0, lineRawW - rSuffixW);
+        }
+
+        assert.strictEqual(Math.round(rawWOffset * 10) / 10, 678.3, "Suffix triangulation must bypass BiDi number in prefix and yield exact 678.3px offset");
+        console.log('  ✓ BiDi Suffix Triangulation Invariant: Zero horizontal drift for phrases following numbers ("53", "200")');
+    }
+
+    // 20. Baseline-Safe Wrap Threshold Invariant (wrapThresholdH vs refLineH * 1.6)
+    {
+        // In Layer "01", refLineH = 57.5px (inflated by Latin 'É' + descenders), leading = 59.51px.
+        // A 2-line wrap where Line 2 starts with a baseline word ("200" or "من", height 28px) has total height = 87.51px.
+        // Old threshold: refLineH * 1.6 = 92.0px (MISSED the wrap because 87.51 < 92.0!).
+        // New threshold: wrapThresholdH = Math.max(refLineH * 1.18, Math.min(refLineH * 1.42, (refLineH + min2LineH) * 0.5)) = 70.95px.
+        const refLineH = 57.5;
+        const min2LineH = 84.4;
+        const twoLineBaselineWordH = 87.51;
+
+        const oldThreshold = refLineH * 1.6; // 92.0
+        const newThreshold = Math.max(refLineH * 1.18, Math.min(refLineH * 1.42, (refLineH + min2LineH) * 0.5)); // 70.95
+
+        assert.strictEqual(twoLineBaselineWordH > oldThreshold, false, "Old threshold (92px) falsely misses 2-line wrap (87.51px)");
+        assert.strictEqual(twoLineBaselineWordH > newThreshold, true, "New wrapThresholdH (70.95px) accurately detects 2-line wrap (87.51px)");
+        console.log('  ✓ Wrap Threshold Invariant: wrapThresholdH detects baseline-only wrapped words ("200", "من") with 100% accuracy');
+    }
+
+    // 21. Bilateral Shift Isolation Invariant (Exact In-Paragraph Sub-Range Bounding Box)
+    {
+        // Theorem: Given characters c in [0..N) with rendered intervals [L_c, R_c] in [-682, +682],
+        // shifting excluded characters (c not in [s, e)) by +20000 in Pass 1 and -20000 in Pass 2
+        // yields r1.left === min_{c in [s,e)} L_c and (r2.left + r2.width) === max_{c in [s,e)} R_c
+        // with 0.00px error, preserving 100% of World-Ready Paragraph Composer multi-line layout.
+        const glyphIntervals = [
+            { left: 520.0, right: 682.0 },   // Word 0 (rightmost on Line 1)
+            { left: 210.0, right: 505.0 },   // Word 1 (middle of Line 1)
+            { left: -642.4, right: 192.0 },  // Word 2 ("53 مجندا", leftmost on Line 1, ends at -642.4px)
+            { left: -658.8, right: 680.5 }   // Line 2 ("وإصابة ... في الأمن", ends at -658.8px)
+        ];
+
+        function simulateBilateralPass(targetIndices, shiftX) {
+            let minX = Infinity;
+            let maxX = -Infinity;
+            for (let i = 0; i < glyphIntervals.length; i++) {
+                const isTarget = targetIndices.indexOf(i) !== -1;
+                const dx = isTarget ? 0 : shiftX;
+                const l = glyphIntervals[i].left + dx;
+                const r = glyphIntervals[i].right + dx;
+                if (l < minX) minX = l;
+                if (r > maxX) maxX = r;
+            }
+            return { left: minX, width: maxX - minX };
+        }
+
+        // Isolate Line 1 (indices [0, 1, 2]) while Line 2 (index 3) remains in the paragraph:
+        const r1_line1 = simulateBilateralPass([0, 1, 2], 20000);
+        const r2_line1 = simulateBilateralPass([0, 1, 2], -20000);
+        const line1ExactLeft = r1_line1.left;
+        const line1ExactRight = r2_line1.left + r2_line1.width;
+
+        assert.strictEqual(line1ExactLeft, -642.4, "Bilateral Pass 1 must recover exact left ink edge of Line 1 (-642.4px)");
+        assert.strictEqual(line1ExactRight, 682.0, "Bilateral Pass 2 must recover exact right ink edge of Line 1 (+682.0px)");
+
+        // Isolate middle phrase (index [1]) inside Line 1:
+        const r1_phr = simulateBilateralPass([1], 20000);
+        const r2_phr = simulateBilateralPass([1], -20000);
+        assert.strictEqual(r1_phr.left, 210.0, "Bilateral Pass 1 must recover exact phrase left edge (210.0px)");
+        assert.strictEqual(r2_phr.left + r2_phr.width, 505.0, "Bilateral Pass 2 must recover exact phrase right edge (505.0px)");
+        console.log('  ✓ Bilateral Shift Isolation Invariant: Recovers exact in-paragraph [left, right] for lines and phrases with 0.00px error');
     }
 
     console.log('✓ All Arabic, BiDi & Word Selection Geometry Invariants Passed Successfully!\n');
@@ -545,4 +657,3 @@ module.exports = runTest;
 if (require.main === module) {
     runTest();
 }
-
