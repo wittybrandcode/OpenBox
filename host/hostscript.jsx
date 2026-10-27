@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX CEP HOST ENGINE
  * Entry Point: hostscript.jsx
  * Version: 2.0.0 (Modular Architecture)
@@ -34,7 +34,10 @@
 // 8. Style & Motion Recipe Strategies (Extensible Plugins)
 #include "modules/Recipes.jsx"
 
-// 9. Highlight Shape Layer Builder (Depends on all above modules)
+// 9. Central Shape Layer Factory (Depends on Recipes, Config, Utils)
+#include "modules/ShapeLayerFactory.jsx"
+
+// 10. Highlight Shape Layer Builder (Depends on all above modules)
 #include "modules/HighlightBuilder.jsx"
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -65,9 +68,10 @@ $._smartHighlighter.syncHighlight = function (jsonPayloadStr) {
     if (typeof SMART_HL_TYPEWRITER_LOADED !== "undefined") loaded.push("TypewriterEngine");
     if (typeof SMART_HL_CONTROLLER_LOADED !== "undefined") loaded.push("ControllerBridge");
     if (typeof SMART_HL_RECIPES_LOADED !== "undefined") loaded.push("Recipes");
+    if (typeof SMART_HL_SHAPELAYERFACTORY_LOADED !== "undefined") loaded.push("ShapeLayerFactory");
     if (typeof SMART_HL_BUILDER_LOADED !== "undefined") loaded.push("HighlightBuilder");
 
     if ($._smartHighlighter && $._smartHighlighter.log) {
-        $._smartHighlighter.log("Host Engine initialized. Modules loaded: " + loaded.join(", ") + " (" + loaded.length + "/9)");
+        $._smartHighlighter.log("Host Engine initialized. Modules loaded: " + loaded.join(", ") + " (" + loaded.length + "/10)");
     }
 })();

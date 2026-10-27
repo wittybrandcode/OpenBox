@@ -22,6 +22,7 @@ const suites = [
     { name: 'Arabic, BiDi & Word Geometry', path: './unit/arabic_bidi_geometry.test.js' },
     { name: 'Timecode Engine & Segmented Inputs', path: './unit/timecode_engine.test.js' },
     { name: 'Recipe Plugin Architecture', path: './unit/recipe_system.test.js' },
+    { name: 'Advanced Features & Optimization', path: './unit/advanced_features.test.js' },
     { name: 'Expression Safety & Evaluation', path: './integration/expression_syntax.test.js' },
     { name: 'Zero Undo-Leaks & Balance', path: './integration/undo_safety.test.js' },
     { name: 'Codebase Syntax & AST Check', path: './integration/syntax_validation.test.js' }

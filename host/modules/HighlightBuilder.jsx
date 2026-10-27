@@ -314,15 +314,10 @@ $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBox
             });
         }
 
+                var consolidatedLayer = null;
         for (var k = 0; k < totalBoxes; k++) {
             var box = boxesData[k];
-            var shapeLayer = comp.layers.addShape();
-            shapeLayer.name = box.name;
-            shapeLayer.comment = tag;
-
-            shapeLayer.moveAfter(lastLayer);
-            lastLayer = shapeLayer;
-            shapeLayer.parent = textLayer;
+            var prevSnap = (prevBoxes && k < prevBoxes.length) ? prevBoxes[k] : null;
 
             // Context for strategy recipes
             var ctx = {
@@ -330,7 +325,7 @@ $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBox
                 totalBoxes: totalBoxes,
                 box: box,
                 textLayer: textLayer,
-                shapeLayer: shapeLayer,
+                shapeLayer: null,
                 comp: comp,
                 data: data,
                 style: styleRecipe,
@@ -349,74 +344,25 @@ $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBox
                 hasOutro: hasOutro
             };
 
-            var xform = shapeLayer.property("ADBE Transform Group");
-            xform.property("ADBE Position").setValue([0, 0]);
-            xform.property("ADBE Anchor Point").expression = "hasParent ? parent.transform.anchorPoint : value;";
-            xform.property("ADBE Scale").setValue([100, 100]);
+            var shapeOpts = {
+                comment: tag,
+                lastLayer: lastLayer,
+                prevSnap: prevSnap,
+                defaultColor: data.color,
+                defaultPadX: data.paddingX,
+                defaultPadY: data.paddingY,
+                defaultRound: initRoundness,
+                defaultOpacity: initOpacity,
+                singleLayer: !!data.singleLayer,
+                masterLayer: consolidatedLayer
+            };
 
-            // Opacity expression will be assigned after effect controls are created
+            var shapeLayer = $._smartHighlighter.createHighlightShapeLayer(comp, textLayer, box, ctx, shapeOpts);
+            if (!consolidatedLayer && data.singleLayer) consolidatedLayer = shapeLayer;
+            ctx.shapeLayer = shapeLayer;
+            lastLayer = shapeLayer;
 
-            // Visual setup: blending mode & rotation (delegated to style recipe)
-            if (styleRecipe && styleRecipe.setupLayer) {
-                styleRecipe.setupLayer(shapeLayer, ctx);
-            } else {
-                if (style === "marker") {
-                    var tilts = [-1.2, 0.8, -0.6, 1.1, -0.9, 0.7];
-                    xform.property("ADBE Rotate Z").setValue(tilts[k % tilts.length]);
-                    shapeLayer.blendingMode = BlendingMode.MULTIPLY;
-                } else {
-                    xform.property("ADBE Rotate Z").setValue(0);
-                    shapeLayer.blendingMode = BlendingMode.NORMAL;
-                }
-            }
-
-            // Ø§Ø³ØªØ±Ø¬Ø§Ø¹ Ø£ÙŠ ØªØ®ØµÙŠØµ Ù…Ø­Ù„ÙŠ Ø³Ø§Ø¨Ù‚ Ù„Ù‡Ø°Ø§ Ø§Ù„Ø³Ø·Ø±/Ø§Ù„ØµÙ†Ø¯ÙˆÙ‚ (Ø¥Ù† ÙˆØ¬Ø¯)
-            var prevSnap = (prevBoxes && k < prevBoxes.length) ? prevBoxes[k] : null;
-            var isLocalCustom = (prevSnap && prevSnap.useMaster === 0);
-
-            // Per-line / Per-box effect controls (ØªÙˆØ§ÙÙ‚ÙŠØ© Ø¯ÙˆÙ„ÙŠØ© Ø¹Ø¨Ø± Ø§Ù„ÙÙ‡Ø±Ø³ 1)
-            var fx = shapeLayer.property("ADBE Effect Parade");
-            var chk = fx.addProperty("ADBE Checkbox Control"); chk.name = "Use Master Controls";
-            chk.property(1).setValue(isLocalCustom ? 0 : 1);
-
-            var colFx = fx.addProperty("ADBE Color Control"); colFx.name = "Local Color";
-            colFx.property(1).setValue((isLocalCustom && prevSnap.color) ? prevSnap.color : data.color);
-
-            var pXFx = fx.addProperty("ADBE Slider Control"); pXFx.name = "Local Padding X";
-            pXFx.property(1).setValue((isLocalCustom && prevSnap.padX !== null) ? prevSnap.padX : data.paddingX);
-
-            var pYFx = fx.addProperty("ADBE Slider Control"); pYFx.name = "Local Padding Y";
-            pYFx.property(1).setValue((isLocalCustom && prevSnap.padY !== null) ? prevSnap.padY : data.paddingY);
-
-            var offFx = fx.addProperty("ADBE Slider Control"); offFx.name = "Local Offset Y";
-            offFx.property(1).setValue((isLocalCustom && prevSnap.offY !== null) ? prevSnap.offY : 0);
-
-            var rndFx = fx.addProperty("ADBE Slider Control"); rndFx.name = "Local Roundness";
-            rndFx.property(1).setValue((isLocalCustom && prevSnap.round !== null) ? prevSnap.round : initRoundness);
-
-            var opacFx = fx.addProperty("ADBE Slider Control"); opacFx.name = "Local Opacity";
-            opacFx.property(1).setValue((isLocalCustom && prevSnap.opacity !== null && prevSnap.opacity !== undefined) ? prevSnap.opacity : initOpacity);
-
-            var progFx = fx.addProperty("ADBE Slider Control"); progFx.name = "Progress";
-            progFx.property(1).setValue(100);
-
-            var opacityCond = (motionRecipe && motionRecipe.getOpacityCondition)
-                ? motionRecipe.getOpacityCondition(ctx)
-                : ((motion === "typewriter" && revealUnit === "lines") ? '(prog < 50) ? 0 : baseOp;' : '(prog <= 0) ? 0 : baseOp;');
-
-            xform.property("ADBE Opacity").expression = 
-                'var pLayer = hasParent ? parent : null;\n' +
-                'var useM = 1; try { useM = effect("Use Master Controls")(1); } catch (eM) {}\n' +
-                'var mOp = 100; try { mOp = (pLayer && pLayer.effect("Master Highlight Opacity")) ? pLayer.effect("Master Highlight Opacity")(1) : 100; } catch (eMOp) {}\n' +
-                'var lOp = 100; try { lOp = effect("Local Opacity")(1); } catch (eLOp) {}\n' +
-                'var baseOp = (useM == 1) ? mOp : lOp;\n' +
-                'var prog = 100; try { prog = effect("Progress")(1); } catch (eP) {}\n' +
-                opacityCond;
-
-            // Scale transform expression (delegated to motion recipe)
-            if (motionRecipe && motionRecipe.applyTransformScale) {
-                motionRecipe.applyTransformScale(xform.property("ADBE Scale"), ctx);
-            }
+            var progFx = shapeLayer.property("ADBE Effect Parade").property("Progress");
 
             if (data.animate) {
                 var lineDur = (motionRecipe && typeof motionRecipe.lineDur === "number")
@@ -634,37 +580,6 @@ $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBox
                 progFx.property(1).setValue(100);
             }
 
-            var contents = shapeLayer.property("ADBE Root Vectors Group");
-            var group = contents.addProperty("ADBE Vector Group");
-            group.name = "Box Group";
-            var gContents = group.property("ADBE Vectors Group");
-
-            var rect = gContents.addProperty("ADBE Vector Shape - Rect");
-            rect.name = "Box";
-
-            // Size expression (delegated to style recipe)
-            if (styleRecipe && styleRecipe.getSizeExpression) {
-                rect.property("ADBE Vector Rect Size").expression = styleRecipe.getSizeExpression(ctx);
-            }
-
-            // Position expression (delegated to style recipe)
-            if (styleRecipe && styleRecipe.getPositionExpression) {
-                rect.property("ADBE Vector Rect Position").expression = styleRecipe.getPositionExpression(ctx);
-            }
-
-            // Roundness (Safely clamped so it never exceeds half-height, fully controllable by Master & Local)
-            rect.property("ADBE Vector Rect Roundness").expression = 
-                'var pLayer = hasParent ? parent : null;\n' +
-                'var useM = effect("Use Master Controls")(1);\n' +
-                'var r = (useM == 1 && pLayer) ? pLayer.effect("Master Roundness")(1) : effect("Local Roundness")(1);\n' +
-                'var sz = thisProperty.propertyGroup(1).size;\n' +
-                'Math.min(Math.max(0, r), Math.min(sz[0], sz[1]) / 2);';
-
-            // Graphic: Fill vs Outline (delegated to style recipe)
-            if (styleRecipe && styleRecipe.buildGraphics) {
-                styleRecipe.buildGraphics(gContents, ctx);
-            }
-
             $._smartHighlighter.log("  Box " + (k + 1) + " created: [" + box.text + "] w=" + box.width.toFixed(1) + " h=" + box.height.toFixed(1));
         }
 
@@ -801,6 +716,11 @@ $._smartHighlighter.removeHighlight = function () {
                 }
             }
         } catch (eAnc) {}
+
+        // Clear memoization cache
+        if ($._smartHighlighter.clearScanCache) {
+            $._smartHighlighter.clearScanCache();
+        }
 
         $._smartHighlighter.log("removeHighlight: " + removedBoxes + " boxes, " + removedEffects + " master effects, " + removedMarkers + " markers removed");
         

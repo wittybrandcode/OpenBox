@@ -10,15 +10,19 @@
  * - Safe unconstrained box expansion for character and word offsets.
  */
 
-// محرك القياس الهندسي المباشر لحبر الأسطر دون Text Animators مؤقتة تلوث الطبقة
-$._smartHighlighter.createBilateralIsolator = function (targetLayer, evalTime) {
-    // تم إلغاء استخدام Text Animators لتفادي تلوث طبقة النص الأصلية وانهيار ريندر After Effects
-    return null;
+if (!$._smartHighlighter._scanCache) {
+    $._smartHighlighter._scanCache = {};
+}
+
+$._smartHighlighter.clearScanCache = function () {
+    $._smartHighlighter._scanCache = {};
+    $._smartHighlighter.log("Scan cache cleared.");
 };
 
 // فحص أسطر الفقرة بدقة تامة مع حماية من الأخطاء
 $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
     var temp = null;
+    var tempCreated = false;
     try {
         var srcProp = textLayer.property("Source Text");
         var textDoc = srcProp.value;
@@ -59,6 +63,40 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
             } catch (eJ2) {}
         }
 
+        // فحص ما إذا كانت طبقة النص Paragraph (Area) Text أو Point Text
+        var isBoxText = false;
+        var boxSize = null;
+        try {
+            isBoxText = !!textDoc.boxText;
+            if (isBoxText && textDoc.boxTextSize) {
+                boxSize = [textDoc.boxTextSize[0], textDoc.boxTextSize[1]];
+            }
+        } catch (eBox) {
+            isBoxText = false;
+        }
+
+        // بناء بصمة الفحص الحتمية (Deterministic Fingerprint Hash)
+        var boxStr = "point";
+        if (isBoxText && boxSize) {
+            boxStr = boxSize[0] + "x" + boxSize[1];
+        }
+        var fp = [
+            (textLayer.id !== undefined && textLayer.id !== null) ? textLayer.id : textLayer.name,
+            fullText,
+            fontSize,
+            textDoc.font,
+            textDoc.leading,
+            textDoc.tracking,
+            justification,
+            boxStr,
+            (typeof optText === "string" ? optText : "")
+        ].join("|");
+
+        if ($._smartHighlighter._scanCache && $._smartHighlighter._scanCache[fp]) {
+            $._smartHighlighter.log("scanParagraph: CACHE HIT for [" + fp + "]");
+            return $._smartHighlighter._scanCache[fp];
+        }
+
         // إذا كانت طبقة المستخدم تحمل اسم المحرك المؤقت نتيجة خطأ سابق، نعيد تسميتها فوراً لحمايتها
         if (textLayer.name === $._smartHighlighter.SCAN_TEMP_ENGINE) {
             textLayer.name = "Highlight Text";
@@ -75,6 +113,7 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
         }
 
         temp = textLayer.duplicate();
+        tempCreated = true;
         temp.name = $._smartHighlighter.SCAN_TEMP_ENGINE;
         temp.enabled = true; // يجب أن تكون مفعلة ليتمكن After Effects من حساب أبعاد sourceRectAtTime
         temp.guideLayer = true; // طبقة إرشادية لا تؤثر على المشهد أو الريندر
@@ -88,18 +127,6 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
                 }
             }
         } catch (eCleanAnim) {}
-
-        // فحص ما إذا كانت طبقة النص Paragraph (Area) Text أو Point Text
-        var isBoxText = false;
-        var boxSize = null;
-        try {
-            isBoxText = !!textDoc.boxText;
-            if (isBoxText && textDoc.boxTextSize) {
-                boxSize = [textDoc.boxTextSize[0], textDoc.boxTextSize[1]];
-            }
-        } catch (eBox) {
-            isBoxText = false;
-        }
 
         // قياس الفقرة الكاملة داخل الصندوق الأصلي فوراً على النسخة البكر 100% قبل أي تلاعب في النصوص
         var rFull = temp.sourceRectAtTime(comp.time, false);
@@ -630,7 +657,7 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
 
         $._smartHighlighter.log("scan: " + numLines + " lines, " + totalSlots + " slots, " + totalWords + " words, isJustified=" + isJustified + " (" + justifyType + "), fullW=" + rFull.width.toFixed(1) + ", refH=" + refLineH.toFixed(1));
 
-        return {
+        var res = {
             linesData: linesData,
             numLines: numLines,
             totalSlots: totalSlots,
@@ -653,6 +680,13 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
             alefAnchorW: alefAnchorW
         };
 
+        if (!$._smartHighlighter._scanCache) {
+            $._smartHighlighter._scanCache = {};
+        }
+        $._smartHighlighter._scanCache[fp] = res;
+
+        return res;
+
     } catch (eScan) {
         $._smartHighlighter.log("scanParagraph EXCEPTION: " + eScan.toString());
         return null;
@@ -663,17 +697,19 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
             } catch (eR) {}
             temp = null;
         }
-        for (var di = comp.numLayers; di >= 1; di--) {
+        if (tempCreated) {
+            for (var di = comp.numLayers; di >= 1; di--) {
+                try {
+                    var dL = comp.layer(di);
+                    if (dL && dL !== textLayer && dL.name === $._smartHighlighter.SCAN_TEMP_ENGINE) {
+                        dL.remove();
+                    }
+                } catch (eDel) {}
+            }
             try {
-                var dL = comp.layer(di);
-                if (dL && dL !== textLayer && dL.name === $._smartHighlighter.SCAN_TEMP_ENGINE) {
-                    dL.remove();
-                }
-            } catch (eDel) {}
+                textLayer.selected = true;
+            } catch (eSel) {}
         }
-        try {
-            textLayer.selected = true;
-        } catch (eSel) {}
     }
 };
 

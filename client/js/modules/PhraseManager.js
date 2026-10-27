@@ -476,6 +476,91 @@
                     window.addEventListener("mouseup", onMouseUp);
                 });
             }
+        },
+        parseSubtitles: function (subText, format) {
+            if (!subText || typeof subText !== "string") return [];
+            var lines = subText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+            var cues = [];
+            var currentCue = null;
+            var timeRegex = /(?:(\d{2}):)?(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(?:(\d{2}):)?(\d{2}):(\d{2})[,.](\d{3})/;
+
+            function parseSeconds(h, m, s, ms) {
+                var hours = h ? parseInt(h, 10) : 0;
+                var minutes = parseInt(m, 10) || 0;
+                var seconds = parseInt(s, 10) || 0;
+                var millis = parseInt(ms, 10) || 0;
+                return hours * 3600 + minutes * 60 + seconds + (millis / 1000);
+            }
+
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].replace(/^\s+|\s+$/g, "");
+                if (!line) {
+                    if (currentCue && currentCue.text) {
+                        cues.push(currentCue);
+                        currentCue = null;
+                    }
+                    continue;
+                }
+                if (line === "WEBVTT" || line.indexOf("NOTE") === 0) continue;
+                var match = line.match(timeRegex);
+                if (match) {
+                    var startSec = parseSeconds(match[1], match[2], match[3], match[4]);
+                    var endSec = parseSeconds(match[5], match[6], match[7], match[8]);
+                    currentCue = {
+                        start: startSec,
+                        end: endSec,
+                        duration: Math.max(0.04, endSec - startSec),
+                        text: ""
+                    };
+                } else if (currentCue) {
+                    var cleanLine = line.replace(/<[^>]+>/g, "");
+                    if (currentCue.text) {
+                        currentCue.text += " " + cleanLine;
+                    } else {
+                        currentCue.text = cleanLine;
+                    }
+                }
+            }
+            if (currentCue && currentCue.text) {
+                cues.push(currentCue);
+            }
+            return cues;
+        },
+
+        matchCuesToTokens: function (cues, tokens) {
+            if (!cues || !cues.length || !tokens || !tokens.length) return [];
+            var matched = [];
+            var tokenCursor = 0;
+            for (var c = 0; c < cues.length; c++) {
+                var cue = cues[c];
+                var cueWords = cue.text.toLowerCase().replace(/[^\w\u0600-\u06FF]+/g, " ").replace(/^\s+|\s+$/g, "").split(/\s+/);
+                if (!cueWords.length || !cueWords[0]) continue;
+                var matchedIndices = [];
+                for (var t = tokenCursor; t < tokens.length; t++) {
+                    var tokClean = tokens[t].text.toLowerCase().replace(/[^\w\u0600-\u06FF]+/g, "");
+                    var cueTarget = cueWords[matchedIndices.length];
+                    if (tokClean === cueTarget || tokClean.indexOf(cueTarget) !== -1 || cueTarget.indexOf(tokClean) !== -1) {
+                        matchedIndices.push(t);
+                        if (matchedIndices.length === cueWords.length) {
+                            tokenCursor = t + 1;
+                            break;
+                        }
+                    } else if (matchedIndices.length > 0) {
+                        matchedIndices = [];
+                    }
+                }
+                if (matchedIndices.length > 0) {
+                    matched.push({
+                        cueIndex: c,
+                        start: cue.start,
+                        end: cue.end,
+                        duration: cue.duration,
+                        text: cue.text,
+                        tokenIndices: matchedIndices
+                    });
+                }
+            }
+            return matched;
         }
     };
 

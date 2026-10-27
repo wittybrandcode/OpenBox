@@ -455,7 +455,7 @@ var getStandardPositionSnippet = function (ctx) {
         '    // حساب المسافة الرأسية بالاعتماد على totalSlots لمنع أي انزياح أو صندوق وهمي عند الأسطر الفارغة\n' +
         '    var linePitch = (' + totalSlots + ' > 1) ? Math.max(0, (r.height - dynH) / (' + (totalSlots - 1) + ')) : 0;\n';
 
-    if (ctx.style.id === "underline") {
+    if (ctx.style.id === "underline" || ctx.style.id === "wavy") {
         if (totalSlots === 1) {
             posSnippet += '    curY = r.top + r.height - (Math.max(curFS * 0.12, 5) / 2) + 2;\n';
         } else {
@@ -524,15 +524,27 @@ var getStandardPositionSnippet = function (ctx) {
             }
         }
     } else {
-        if (box.rtl_k) {
+        if (isCenter) {
+            posSnippet += 
+                '    var cOff = ' + (box.centerOffset ? box.centerOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
+                '    var lineCenterX = r.left + (r.width / 2) + cOff;\n';
+            if (box.rtl_k) {
+                posSnippet +=
+                    '    var lineHalfW = (' + (box.width / 2).toFixed(2) + ' * fontRatio);\n' +
+                    '    var rightEdge = lineCenterX + lineHalfW;\n' +
+                    '    curX = (rightEdge + pX - (startOffset * fontRatio)) - (curW / 2);\n' +
+                    '    [curX, curY + offY];\n';
+            } else {
+                posSnippet +=
+                    '    var lineHalfW = (' + (box.width / 2).toFixed(2) + ' * fontRatio);\n' +
+                    '    var leftEdge = lineCenterX - lineHalfW;\n' +
+                    '    curX = (leftEdge - pX + (startOffset * fontRatio)) + (curW / 2);\n' +
+                    '    [curX, curY + offY];\n';
+            }
+        } else if (box.rtl_k) {
             posSnippet += 
                 '    var rOff = ' + (box.rightOffset ? box.rightOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
                 '    curX = ((r.left + r.width) - rOff + pX - (startOffset * fontRatio)) - (curW / 2);\n' +
-                '    [curX, curY + offY];\n';
-        } else if (isCenter) {
-            posSnippet += 
-                '    var cOff = ' + (box.centerOffset ? box.centerOffset.toFixed(2) : '0') + ' * fontRatio;\n' +
-                '    curX = r.left + (r.width / 2) + cOff;\n' +
                 '    [curX, curY + offY];\n';
         } else {
             posSnippet += 
@@ -591,7 +603,7 @@ var getStandardSizeSnippet = function (ctx) {
         '    var isForwardOutro = isOutro && ' + (isForwardOutro ? 'true' : 'false') + ';\n' +
         '    var fullH;\n';
 
-    if (ctx.style.id === "underline") {
+    if (ctx.style.id === "underline" || ctx.style.id === "wavy") {
         sizeSnippet += '    fullH = Math.max(curFS * 0.12, 5) + pY;\n';
     } else if (totalSlots === 1) {
         sizeSnippet += '    fullH = Math.max(r.height, ' + box.height.toFixed(2) + ' * fontRatio) + (pY * 2);\n';
@@ -762,6 +774,50 @@ $._smartHighlighter.recipes.registerStyle("outline", {
             'var mCol = (pLayer && pLayer.effect("Master Highlight Color")) ? pLayer.effect("Master Highlight Color")(1) : [1, 0.9, 0, 1];\n' +
             'var lColProp = effect("Local Color")(1);\n' +
             '(useM == 0 || !pLayer || lColProp.numKeys > 0) ? lColProp.value : mCol;';
+    }
+});
+
+
+// F. WAVY / ZIGZAG UNDERLINE STYLE
+$._smartHighlighter.recipes.registerStyle("wavy", {
+    name: "Wavy Underline",
+    defaultRoundness: 0,
+    blendingMode: BlendingMode.NORMAL,
+
+    setupLayer: function (shapeLayer, ctx) {
+        var rotZ = shapeLayer.property("ADBE Transform Group").property("ADBE Rotate Z");
+        if (rotZ) rotZ.setValue(0);
+        shapeLayer.blendingMode = this.blendingMode;
+    },
+
+    getSizeExpression: function (ctx) {
+        return getStandardSizeSnippet(ctx);
+    },
+
+    getPositionExpression: function (ctx) {
+        return getStandardPositionSnippet(ctx);
+    },
+
+    buildGraphics: function (gContents, ctx) {
+        var stroke = gContents.addProperty("ADBE Vector Graphic - Stroke");
+        stroke.name = "Wavy Stroke";
+        stroke.property("ADBE Vector Stroke Width").setValue(3);
+        stroke.property("ADBE Vector Stroke Color").expression = 
+            'var pLayer = hasParent ? parent : null;\n' +
+            'var useM = 0; try { useM = effect("Use Master Controls")(1); } catch(eM) {}\n' +
+            'var mCol = (pLayer && pLayer.effect("Master Highlight Color")) ? pLayer.effect("Master Highlight Color")(1) : [1, 0.9, 0, 1];\n' +
+            'var lColProp = effect("Local Color")(1);\n' +
+            '(useM == 0 || !pLayer || lColProp.numKeys > 0) ? lColProp.value : mCol;';
+
+        try {
+            var zigzag = gContents.addProperty("ADBE Vector Filter - Zigzag");
+            if (zigzag) {
+                zigzag.name = "Zigzag Wave";
+                try { zigzag.property("ADBE Vector Zigzag Point Type").setValue(2); } catch (ePt) {}
+                try { zigzag.property("ADBE Vector Zigzag Size").setValue(4); } catch (eSz) {}
+                try { zigzag.property("ADBE Vector Zigzag Ridges").setValue(10); } catch (eRd) {}
+            }
+        } catch (eZz) {}
     }
 });
 
