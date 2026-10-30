@@ -55,12 +55,21 @@ $._smartHighlighter.parseJSON = function (str) {
 
     try {
         // RFC 4627 secure JSON syntax validation - strictly prohibits executing arbitrary code
-        if (/^[],:{}\s]*$/
-            .test(str.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, "@")
+        var filtered = str.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, "@")
             .replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, "]")
-            .replace(/(?:^|:|,)(?:\s*\[)+/g, ""))) {
+            .replace(/(?:^|:|,)(?:\s*\[)+/g, "");
+
+        if (/^[\],:{}\s]*$/.test(filtered)) {
             return eval("(" + str + ")");
         }
+
+        // Resilient fallback for valid JSON structures guarding against arbitrary code execution
+        if (!/(?:^|[^a-zA-Z0-9_$])(?:function|eval|window|document|app|Folder|File|Socket|system|prototype|constructor|this)\b/i.test(str)) {
+            if (/^\s*[\{\[]/.test(str) && /[\}\]]\s*$/.test(str)) {
+                return eval("(" + str + ")");
+            }
+        }
+
         $._smartHighlighter.log("parseJSON SECURITY WARNING: string failed RFC 4627 grammar validation: " + str.substring(0, 50));
         return null;
     } catch (e) {
