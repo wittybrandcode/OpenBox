@@ -276,13 +276,17 @@ $._smartHighlighter.getLayerState = function (fetchText) {
         compName: compName
     };
 
-    if (comp.selectedLayers.length !== 1) {
+    var lyr = $._smartHighlighter.resolveTargetTextLayer ? $._smartHighlighter.resolveTargetTextLayer(comp) : null;
+    if (!lyr) {
+        if (comp.selectedLayers && comp.selectedLayers.length === 1) {
+            lyr = comp.selectedLayers[0];
+        }
+    }
+    if (!lyr) {
         baseInfo.ok = false;
         baseInfo.layerName = "";
         return $._smartHighlighter.stringifyJSON(baseInfo);
     }
-
-    var lyr = comp.selectedLayers[0];
     var tag = $._smartHighlighter.LAYER_COMMENT || "SMART_HL_PRO_LAYER";
 
     var isTextToolActive = false;

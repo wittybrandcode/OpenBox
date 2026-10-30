@@ -644,6 +644,9 @@ var getStandardSizeSnippet = function (ctx) {
 
     var safeBaseFS = Math.max(1, (typeof ctx.baseFS === "number" && ctx.baseFS > 0) ? ctx.baseFS : 1);
     var safeBaseTotalH = Math.max(1, (typeof ctx.baseTotalH === "number" && ctx.baseTotalH > 0) ? ctx.baseTotalH : 1);
+    var safeBaseTotalW = (typeof ctx.baseTotalW === "number" && ctx.baseTotalW > 0) ? ctx.baseTotalW : ((typeof box.lineWidth === "number" && box.lineWidth > 0) ? box.lineWidth : 100);
+    var safeBaseLeft = (typeof ctx.baseFullLeft === "number") ? ctx.baseFullLeft : 0;
+    var safeBaseTop = (typeof ctx.baseFullTop === "number") ? ctx.baseFullTop : 0;
 
     var sizeSnippet = 
         'var pLayer = hasParent ? parent : null;\n' +

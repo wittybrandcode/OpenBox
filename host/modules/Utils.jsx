@@ -44,17 +44,93 @@ $._smartHighlighter.safeEndUndoGroup = function () {
     }
 };
 
+// دالة الاستبانة الذكية والشاملة لطبقة النص الهدف (Resilient Target Text Layer Resolution)
+$._smartHighlighter.resolveTargetTextLayer = function (comp) {
+    if (!comp || !(comp instanceof CompItem)) return null;
+
+    // 1. تحديد طبقة واحدة مباشرة
+    if (comp.selectedLayers && comp.selectedLayers.length === 1) {
+        var sel = comp.selectedLayers[0];
+        if (sel instanceof TextLayer) return sel;
+        if (sel instanceof ShapeLayer && sel.parent && (sel.parent instanceof TextLayer)) return sel.parent;
+        if (sel.comment && sel.comment.indexOf("PARENT:") !== -1) {
+            var pName = sel.comment.replace("PARENT:", "").replace(/^\s+|\s+$/g, "");
+            try { var pLay = comp.layer(pName); if (pLay instanceof TextLayer) return pLay; } catch (eP) {}
+        }
+    }
+
+    // 2. إذا تم تحديد طبقات متعددة (مثلاً النص وطبقة الشكل معاً)
+    if (comp.selectedLayers && comp.selectedLayers.length > 1) {
+        for (var i = 0; i < comp.selectedLayers.length; i++) {
+            var l = comp.selectedLayers[i];
+            if (l instanceof TextLayer) return l;
+            if (l instanceof ShapeLayer && l.parent && (l.parent instanceof TextLayer)) return l.parent;
+        }
+    }
+
+    // 3. حالة عدم تحديد أي طبقة (مثلاً التركيز على لوحة CEP): إذا كانت التركيبة تحتوي على طبقة نص وحيدة، يتم استهدافها تلقائياً
+    var foundText = null;
+    var textCount = 0;
+    for (var j = 1; j <= comp.numLayers; j++) {
+        var cand = comp.layer(j);
+        if (cand instanceof TextLayer) {
+            foundText = cand;
+            textCount++;
+        }
+    }
+    if (textCount === 1) {
+        return foundText;
+    }
+
+    return null;
+};
+
 // محاكي ومحول JSON للتوافقية الكاملة مع محركات ExtendScript القديمة (ES3) والمحصن أمنياً (RFC 4627)
 $._smartHighlighter.parseJSON = function (str) {
-    if (!str || typeof str !== "string") return null;
+    if (!str) return null;
+    if (typeof str === "object") return str;
+    if (typeof str !== "string") return null;
+
+    // تنظيف المسافات المحيطة
+    str = str.replace(/^\s+|\s+$/g, "");
+    if (!str) return null;
+
+    // معالجة النصوص المغلفة مرتين بسلاسل اقتباس (Double-stringified JSON)
+    if (str.length > 2 && ((str.charAt(0) === '"' && str.charAt(str.length - 1) === '"') || (str.charAt(0) === "'" && str.charAt(str.length - 1) === "'"))) {
+        if (str.indexOf('{') !== -1 || str.indexOf('[') !== -1) {
+            try { str = eval(str); } catch (eUnwrap) {}
+            if (typeof str === "object") return str;
+            if (typeof str !== "string") return null;
+            str = str.replace(/^\s+|\s+$/g, "");
+        }
+    }
+
+    // المحاولة عبر JSON.parse الأصلي في حال توفره
     try {
         if (typeof JSON !== "undefined" && typeof JSON.parse === "function" && JSON.parse !== $._smartHighlighter.parseJSON) {
-            return JSON.parse(str);
+            var nativeParsed = JSON.parse(str);
+            if (nativeParsed) return nativeParsed;
         }
     } catch (eNative) {}
 
+    // التحصين الأمني الصارم: منع الكلمات المفتاحية الخطرة لمنع تنفيذ شفرات عشوائية (Security Invariant)
+    if (/(?:^|[^a-zA-Z0-9_$])(?:function|eval|window|document|app|Folder|File|Socket|system|prototype|constructor|this)\b/i.test(str)) {
+        $._smartHighlighter.log("parseJSON SECURITY WARNING: string contains prohibited keywords: " + str.substring(0, 50));
+        return null;
+    }
+
+    // فحص صحة حدود هيكل الـ JSON (كائن {...} أو مصفوفة [...])
+    if ((str.charAt(0) === "{" && str.charAt(str.length - 1) === "}") || (str.charAt(0) === "[" && str.charAt(str.length - 1) === "]")) {
+        try {
+            return eval("(" + str + ")");
+        } catch (eEval) {
+            $._smartHighlighter.log("parseJSON eval ERROR: " + eEval.toString());
+            return null;
+        }
+    }
+
+    // التحقق القياسي عبر RFC 4627 للقيم البسيطة
     try {
-        // RFC 4627 secure JSON syntax validation - strictly prohibits executing arbitrary code
         var filtered = str.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, "@")
             .replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, "]")
             .replace(/(?:^|:|,)(?:\s*\[)+/g, "");
@@ -62,20 +138,10 @@ $._smartHighlighter.parseJSON = function (str) {
         if (/^[\],:{}\s]*$/.test(filtered)) {
             return eval("(" + str + ")");
         }
+    } catch (eRfc) {}
 
-        // Resilient fallback for valid JSON structures guarding against arbitrary code execution
-        if (!/(?:^|[^a-zA-Z0-9_$])(?:function|eval|window|document|app|Folder|File|Socket|system|prototype|constructor|this)\b/i.test(str)) {
-            if (/^\s*[\{\[]/.test(str) && /[\}\]]\s*$/.test(str)) {
-                return eval("(" + str + ")");
-            }
-        }
-
-        $._smartHighlighter.log("parseJSON SECURITY WARNING: string failed RFC 4627 grammar validation: " + str.substring(0, 50));
-        return null;
-    } catch (e) {
-        $._smartHighlighter.log("parseJSON ERROR: " + e.toString());
-        return null;
-    }
+    $._smartHighlighter.log("parseJSON syntax validation failed: " + str.substring(0, 50));
+    return null;
 };
 
 // Ø¯Ø§Ù„Ø© ØªÙ‡Ø±ÙŠØ¨ Ø³Ù„Ø§Ø³Ù„ Ø§Ù„Ù†ØµÙˆØµ Ø§Ù„Ù…ØªÙˆØ§ÙÙ‚Ø© Ù…Ø¹ Ù…Ø¹Ø§ÙŠÙŠØ± JSON (ECMA-262) Ù„Ù…Ù†Ø¹ Ø£Ø®Ø·Ø§Ø¡ Ø§Ù„ØªØ­Ù„ÙŠÙ„

@@ -10,21 +10,21 @@
 
 // Ø§Ù„Ø¯Ø§Ù„Ø© Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ© Ù„Ø¥Ù†Ø´Ø§Ø¡ ÙˆØªØ­Ø¯ÙŠØ« Ø§Ù„Ù‡Ø§ÙŠÙ„Ø§ÙŠØª
 $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBoxes, _preMeta) {
-    var comp = app.project.activeItem;
+    var comp = app.project ? app.project.activeItem : null;
     if (!comp || !(comp instanceof CompItem)) {
-        return "ERROR: ÙŠØ±Ø¬Ù‰ ÙØªØ­ ØªØ±ÙƒÙŠØ¨Ø© (Composition) Ø£ÙˆÙ„Ø§Ù‹.";
-    }
-    if (comp.selectedLayers.length !== 1) {
-        return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© ÙˆØ§Ø­Ø¯Ø© (Text Layer Ø£Ùˆ Shape Layer).";
+        return "ERROR: Please open a composition first";
     }
 
-    var sel = comp.selectedLayers[0];
-    var textLayer = (sel instanceof TextLayer) ? sel : ((sel instanceof ShapeLayer && sel.parent && sel.parent instanceof TextLayer) ? sel.parent : null);
+    var textLayer = $._smartHighlighter.resolveTargetTextLayer ? $._smartHighlighter.resolveTargetTextLayer(comp) : null;
+    if (!textLayer && comp.selectedLayers && comp.selectedLayers.length === 1) {
+        var sel = comp.selectedLayers[0];
+        textLayer = (sel instanceof TextLayer) ? sel : ((sel instanceof ShapeLayer && sel.parent && sel.parent instanceof TextLayer) ? sel.parent : null);
+    }
     if (!textLayer) {
-        return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© Ù†Øµ ÙˆØ§Ø­Ø¯Ø© (Text Layer) Ø£Ùˆ Ø·Ø¨Ù‚Ø© ØªØ¸Ù„ÙŠÙ„ Ù…Ø±ØªØ¨Ø·Ø© Ø¨Ù‡Ø§.";
+        return "ERROR: Please select a Text Layer or associated highlight layer";
     }
     var data = $._smartHighlighter.parseJSON(jsonPayloadStr);
-    if (!data) return "ERROR: Ø®Ø·Ø£ ÙÙŠ ØµÙŠØ§ØºØ© Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª.";
+    if (!data) return "ERROR: Invalid JSON payload";
 
     // Ø¥Ù†Ù‡Ø§Ø¡ Ø£ÙŠ ØªØ­Ø±ÙŠØ± Ù†ØµÙŠ Ù†Ø´Ø· Ø¨Ø³Ù„Ø§Ø³Ø© ÙˆØ§Ù„Ø¹ÙˆØ¯Ø© Ù„Ø£Ø¯Ø§Ø© Ø§Ù„ØªØ­Ø¯ÙŠØ¯ Ù„Ù…Ù†Ø¹ ØªØ¹Ø§Ø±Ø¶ Ø§Ù„ØªØ±ÙƒÙŠØ² (76::59)
     try {
@@ -603,22 +603,21 @@ $._smartHighlighter.createHighlight = function (jsonPayloadStr, _isSync, _preBox
 
 // Ø¯Ø§Ù„Ø© Ø§Ù„Ø¥Ø²Ø§Ù„Ø© ÙˆØ§Ù„ØªÙ†Ø¸ÙŠÙ Ø§Ù„Ø´Ø§Ù…Ù„ (Ø­Ø°Ù Ø§Ù„ØµÙ†Ø§Ø¯ÙŠÙ‚ ÙˆØ§Ù„Ù…ØªØ­ÙƒÙ…Ø§Øª ÙˆØ§Ù„Ù…Ø§Ø±ÙƒØ±Ø² Ù…Ù† Ø§Ù„Ù†Øµ)
 $._smartHighlighter.removeHighlight = function () {
-    var comp = app.project.activeItem;
-    if (!comp || !(comp instanceof CompItem)) return "ERROR: Ù„Ø§ ØªÙˆØ¬Ø¯ ØªØ±ÙƒÙŠØ¨Ø© Ù…ÙØªÙˆØ­Ø©.";
-    if (comp.selectedLayers.length !== 1) {
-        return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ Ø£Ùˆ Ø¥Ø­Ø¯Ù‰ Ø·Ø¨Ù‚Ø§Øª Ø§Ù„Ù‡Ø§ÙŠÙ„Ø§ÙŠØª.";
-    }
+    var comp = app.project ? app.project.activeItem : null;
+    if (!comp || !(comp instanceof CompItem)) return "ERROR: No open composition";
 
-    var sel = comp.selectedLayers[0];
-    var textLayer = null;
-    if (sel instanceof TextLayer) {
-        textLayer = sel;
-    } else if (sel instanceof ShapeLayer && sel.parent && (sel.parent instanceof TextLayer)) {
-        textLayer = sel.parent;
+    var textLayer = $._smartHighlighter.resolveTargetTextLayer ? $._smartHighlighter.resolveTargetTextLayer(comp) : null;
+    if (!textLayer && comp.selectedLayers && comp.selectedLayers.length === 1) {
+        var sel = comp.selectedLayers[0];
+        if (sel instanceof TextLayer) {
+            textLayer = sel;
+        } else if (sel instanceof ShapeLayer && sel.parent && (sel.parent instanceof TextLayer)) {
+            textLayer = sel.parent;
+        }
     }
 
     if (!textLayer) {
-        return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ Ø£Ùˆ Ø¥Ø­Ø¯Ù‰ Ø·Ø¨Ù‚Ø§Øª Ø§Ù„Ù‡Ø§ÙŠÙ„Ø§ÙŠØª Ø§Ù„Ù…Ø±ØªØ¨Ø·Ø© Ø¨Ù‡Ø§.";
+        return "ERROR: Please select a Text Layer or associated highlight layer";
     }
 
     app.beginUndoGroup("OpenBox: Clear All");
