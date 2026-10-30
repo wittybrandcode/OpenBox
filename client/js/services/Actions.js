@@ -94,6 +94,9 @@
             var isOutro = (HS.DOM && HS.DOM.phraseOutroCheck) ? HS.DOM.phraseOutroCheck.checked : false;
             var holdTime = (HS.DOM && HS.DOM.phraseHoldTime) ? (HS.TimeEngine ? HS.TimeEngine.toSeconds(HS.DOM.phraseHoldTime.value) : (parseFloat(HS.DOM.phraseHoldTime.value) || 1.2)) : 1.2;
             var isSeq = (HS.DOM && HS.DOM.phraseSeqCheck) ? HS.DOM.phraseSeqCheck.checked : false;
+            var inPoint = (HS.DOM && HS.DOM.timeInPoint) ? (HS.TimeEngine ? HS.TimeEngine.toSeconds(HS.DOM.timeInPoint.value) : (parseFloat(HS.DOM.timeInPoint.value) || 0)) : 0;
+            var outPoint = (HS.DOM && HS.DOM.timeOutPoint) ? (HS.TimeEngine ? HS.TimeEngine.toSeconds(HS.DOM.timeOutPoint.value) : (parseFloat(HS.DOM.timeOutPoint.value) || 2.5)) : 2.5;
+            var lineDur = (HS.DOM && HS.DOM.lineDurInput) ? (HS.TimeEngine ? HS.TimeEngine.toSeconds(HS.DOM.lineDurInput.value) : (parseFloat(HS.DOM.lineDurInput.value) || 0.35)) : 0.35;
 
             var direction = (HS.DOM && HS.DOM.alignSelect) ? HS.DOM.alignSelect.value : "auto";
             var payload = {
@@ -108,7 +111,10 @@
                 revealUnit: currentRevealUnit,
                 outro: isOutro,
                 holdTime: holdTime,
-                sequential: isSeq
+                sequential: isSeq,
+                inPoint: inPoint,
+                outPoint: outPoint,
+                lineDuration: lineDur
             };
 
             HS.setStatus("Applying phrase highlight...");

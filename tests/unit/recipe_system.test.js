@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX â€” Unit Test Suite
  * Test: Recipe Plugin Architecture & Extensibility (Open-Closed Principle)
  * 
@@ -42,12 +42,16 @@ function runTest() {
     recipes.registerMotion("typewriter", { id: "typewriter", isTypewriter: true });
     recipes.registerMotion("wipe", { id: "wipe", isTypewriter: false });
     recipes.registerMotion("pop", { id: "pop", isTypewriter: false });
+    recipes.registerMotion("elastic", { id: "elastic", name: "Elastic Spring Bounce", isTypewriter: false });
+    recipes.registerMotion("snappy", { id: "snappy", name: "Snappy Ease-Out", isTypewriter: false });
 
     // 1. Verify Built-in styles & motions
     assert.strictEqual(recipes.getStyle("box").name, "Solid Box");
     assert.strictEqual(recipes.getStyle("underline").name, "Underline");
     assert.strictEqual(recipes.getStyle("strikethrough").name, "Strikethrough");
     assert.strictEqual(recipes.getMotion("typewriter").isTypewriter, true);
+    assert.strictEqual(recipes.getMotion("elastic").name, "Elastic Spring Bounce");
+    assert.strictEqual(recipes.getMotion("snappy").name, "Snappy Ease-Out");
     assert.strictEqual(recipes.getMotion("wipe").isTypewriter, false);
     assert.strictEqual(recipes.getMotion("pop").isTypewriter, false);
     console.log('  âœ“ Built-in styles (box, underline, strikethrough) and motions verified');

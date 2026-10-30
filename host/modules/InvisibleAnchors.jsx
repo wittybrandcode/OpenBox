@@ -18,6 +18,9 @@ $._smartHighlighter.stripAnchors = function (text) {
 };
 
 // Ø­Ù‚Ù† Ø§Ù„Ø¹Ù„Ø§Ù…Ø§Øª Ø§Ù„Ù…Ø®ÙÙŠØ© Ø§Ù„Ø°ÙƒÙŠØ© Ø¹Ù†Ø¯ Ø¨Ø¯Ø§ÙŠØ© ÙˆÙ†Ù‡Ø§ÙŠØ© ÙƒÙ„ Ø³Ø·Ø± Ø£Ùˆ ØµÙ†Ø¯ÙˆÙ‚ Ù…Ø³ØªÙ‡Ø¯Ù ÙÙŠ Ø§Ù„Ù†Øµ
+// [AP-02 REMEDIATION] Non-destructive Unicode Waypoint protection.
+// Notice: Layer Source Text is NEVER mutated in place; text layers retain 100% pristine user typography.
+// injectAnchors is maintained as an in-memory utility only and NEVER writes to textLayer.property("Source Text").
 $._smartHighlighter.injectAnchors = function (text, items) {
     if (!text || !items || items.length === 0) return text;
 

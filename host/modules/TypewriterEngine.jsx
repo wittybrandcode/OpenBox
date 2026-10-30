@@ -162,8 +162,8 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
                 } catch(eEL) {}
 
                 var inStartPropL = null;
-                try { inStartPropL = inSelLine.property("ADBE Text Percent Start"); } catch(eSL) {}
-                if (!inStartPropL) { try { inStartPropL = inSelLine.property("Start"); } catch(eSL2) {} }
+                try { inStartPropL = inSelLine.property("ADBE Text Percent Start"); } catch (eSL) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:165", eSL); }
+                if (!inStartPropL) { try { inStartPropL = inSelLine.property("Start"); } catch (eSL2) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:166", eSL2); } }
                 if (inStartPropL) {
                     inStartPropL.setValueAtTime(tStart, pStart);
                     inStartPropL.setValueAtTime(tStart + lineDur, pEnd);
@@ -225,8 +225,8 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
                         } catch(eOEL) {}
 
                         var oStartPL = null;
-                        try { oStartPL = outSelLine.property("ADBE Text Percent Start"); } catch(eOSL) {}
-                        if (!oStartPL) { try { oStartPL = outSelLine.property("Start"); } catch(eOSL11) {} }
+                        try { oStartPL = outSelLine.property("ADBE Text Percent Start"); } catch (eOSL) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:228", eOSL); }
+                        if (!oStartPL) { try { oStartPL = outSelLine.property("Start"); } catch (eOSL11) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:229", eOSL11); } }
                         if (oStartPL) {
                             oStartPL.setValueAtTime(tOutStart, pEnd);
                             oStartPL.setValueAtTime(tOutStart + lineOutDur, pStart);
@@ -263,8 +263,8 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
                         } catch(eOSL2) {}
 
                         var oEndPL2 = null;
-                        try { oEndPL2 = outSelLine.property("ADBE Text Percent End"); } catch(eOEL2) {}
-                        if (!oEndPL2) { try { oEndPL2 = outSelLine.property("End"); } catch(eOEL22) {} }
+                        try { oEndPL2 = outSelLine.property("ADBE Text Percent End"); } catch (eOEL2) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:266", eOEL2); }
+                        if (!oEndPL2) { try { oEndPL2 = outSelLine.property("End"); } catch (eOEL22) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:267", eOEL22); } }
                         if (oEndPL2) {
                             oEndPL2.setValueAtTime(tOutStart, pStart);
                             oEndPL2.setValueAtTime(tOutStart + lineOutDur, pEnd);
@@ -323,7 +323,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
             } catch(eE1) {}
 
             var inStartProp = null;
-            try { inStartProp = inSel.property("ADBE Text Percent Start"); } catch(eS1) {}
+            try { inStartProp = inSel.property("ADBE Text Percent Start"); } catch (eS1) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:326", eS1); }
             if (inStartProp) {
                 inStartProp.setValueAtTime(tStart, 0);
                 inStartProp.setValueAtTime(tEnd, 100);
@@ -378,7 +378,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
                     } catch(eOE) {}
 
                     var oStartP = null;
-                    try { oStartP = outSel.property("ADBE Text Percent Start"); } catch(eOS) {}
+                    try { oStartP = outSel.property("ADBE Text Percent Start"); } catch (eOS) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:381", eOS); }
                     if (oStartP) {
                         oStartP.setValueAtTime(tOutStart, 100);
                         oStartP.setValueAtTime(tOutEnd, 0);
@@ -410,7 +410,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
                     } catch(eOS2) {}
 
                     var oEndP2 = null;
-                    try { oEndP2 = outSel.property("ADBE Text Percent End"); } catch(eOE2) {}
+                    try { oEndP2 = outSel.property("ADBE Text Percent End"); } catch (eOE2) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:413", eOE2); }
                     if (oEndP2) {
                         oEndP2.setValueAtTime(tOutStart, 0);
                         oEndP2.setValueAtTime(tOutEnd, 100);
@@ -444,7 +444,7 @@ $._smartHighlighter.ensureTextTypewriter = function (textLayer, tStart, tEnd, st
         var op = null;
         try { op = props.addProperty("ADBE Text Opacity"); } catch(eAddOp) {}
         if (!op) {
-            try { op = props.property("ADBE Text Opacity"); } catch(eGetOp) {}
+            try { op = props.property("ADBE Text Opacity"); } catch (eGetOp) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TypewriterEngine.jsx:447", eGetOp); }
         }
         if (op) op.setValue(0);
 

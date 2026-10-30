@@ -30,16 +30,39 @@ $._smartHighlighter.clearDebugLog = function () {
 };
 
 // Ø¯Ø§Ù„Ø© Ø¥ØºÙ„Ø§Ù‚ Ù…Ø¬Ù…ÙˆØ¹Ø© Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø§Ù„Ø¢Ù…Ù†Ø© Ù„Ù…Ù†Ø¹ Ø£Ø®Ø·Ø§Ø¡ Undo Group Ø§Ù„Ù…Ø²Ø¯ÙˆØ¬Ø© Ø£Ùˆ Ø§Ù„Ù…ÙØªÙˆØ­Ø©
+$._smartHighlighter.logError = function (scope, err) {
+    var msg = (err && err.toString) ? err.toString() : String(err);
+    $._smartHighlighter.log("[ERROR:" + (scope || "General") + "] " + msg);
+};
+
+// دالة إغلاق مجموعة التراجع الآمنة لمنع أخطاء Undo Group المزدوجة أو المفتوحة
 $._smartHighlighter.safeEndUndoGroup = function () {
     try {
         app.endUndoGroup();
-    } catch (eGrp) {}
+    } catch (eGrp) {
+        if ($._smartHighlighter.logError) $._smartHighlighter.logError("safeEndUndoGroup", eGrp);
+    }
 };
 
-// Ù…Ø­Ø§ÙƒÙŠ ÙˆÙ…Ø­ÙˆÙ„ JSON Ù„Ù„ØªÙˆØ§ÙÙ‚ÙŠØ© Ø§Ù„ÙƒØ§Ù…Ù„Ø© Ù…Ø¹ Ù…Ø­Ø±ÙƒØ§Øª ExtendScript Ø§Ù„Ù‚Ø¯ÙŠÙ…Ø© (ES3)
+// محاكي ومحول JSON للتوافقية الكاملة مع محركات ExtendScript القديمة (ES3) والمحصن أمنياً (RFC 4627)
 $._smartHighlighter.parseJSON = function (str) {
+    if (!str || typeof str !== "string") return null;
     try {
-        return eval("(" + str + ")");
+        if (typeof JSON !== "undefined" && typeof JSON.parse === "function" && JSON.parse !== $._smartHighlighter.parseJSON) {
+            return JSON.parse(str);
+        }
+    } catch (eNative) {}
+
+    try {
+        // RFC 4627 secure JSON syntax validation - strictly prohibits executing arbitrary code
+        if (/^[],:{}\s]*$/
+            .test(str.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, "@")
+            .replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, "]")
+            .replace(/(?:^|:|,)(?:\s*\[)+/g, ""))) {
+            return eval("(" + str + ")");
+        }
+        $._smartHighlighter.log("parseJSON SECURITY WARNING: string failed RFC 4627 grammar validation: " + str.substring(0, 50));
+        return null;
     } catch (e) {
         $._smartHighlighter.log("parseJSON ERROR: " + e.toString());
         return null;

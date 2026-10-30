@@ -244,3 +244,23 @@
         }
     };
 })(window, document);
+
+    // [EV-07] Two-Way Action History & AE Undo Sync
+    HS.Bridge.initUndoSync = function () {
+        window.addEventListener("keydown", function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === "z") {
+                // When Undo/Redo is triggered, resynchronize layer state and applied phrases
+                setTimeout(function () {
+                    if (HS.Sync && typeof HS.Sync.fromAE === "function") {
+                        HS.Sync.fromAE(true);
+                    }
+                    if (HS.PhraseManager && typeof HS.PhraseManager.syncAppliedPhrases === "function") {
+                        HS.PhraseManager.syncAppliedPhrases();
+                    }
+                }, 180);
+            }
+        });
+    };
+    if (typeof window !== "undefined") {
+        setTimeout(HS.Bridge.initUndoSync, 100);
+    }

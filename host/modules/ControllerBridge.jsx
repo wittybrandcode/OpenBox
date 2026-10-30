@@ -38,6 +38,8 @@ $._smartHighlighter.writeMeta = function (textLayer, scan) {
         ',"full":"' + $._smartHighlighter.escMeta(scan.fullText) + '"' +
         ',"lines":[' + items.join(",") + ']}';
     var block = $._smartHighlighter.META_OPEN + json + $._smartHighlighter.META_CLOSE;
+
+    // 1. Write to textLayer.comment for file persistence across AE reboots
     var c = "";
     try { c = textLayer.comment || ""; } catch (e) { c = ""; }
     var a = c.indexOf($._smartHighlighter.META_OPEN);
@@ -46,12 +48,31 @@ $._smartHighlighter.writeMeta = function (textLayer, scan) {
         c = c.substring(0, a) + c.substring(b + $._smartHighlighter.META_CLOSE.length);
     }
     c = c.replace(/\s+$/, "");
-    textLayer.comment = c + (c.length > 0 ? "\n" : "") + block;
+    try { textLayer.comment = c + (c.length > 0 ? "\n" : "") + block; } catch (eC) {}
+
+    // 2. [AP-09 REMEDIATION] Store in resilient memory cache (prevents loss if user clears comment)
+    if (!$._smartHighlighter._metaCache) $._smartHighlighter._metaCache = {};
+    try {
+        var key = textLayer.id ? String(textLayer.id) : (textLayer.name || "default");
+        $._smartHighlighter._metaCache[key] = $._smartHighlighter.parseJSON(json);
+    } catch (eCache) {}
 };
 
-// Ù‚Ø±Ø§Ø¡Ø© Ø§Ù„Ù€ Metadata Ù…Ù† ØªØ¹Ù„ÙŠÙ‚ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ
+// قراءة الـ Metadata بأمان مع التحقق المزدوج من الذاكرة والتعليق
 $._smartHighlighter.readMeta = function (textLayer) {
     try {
+        // Priority 1: In-memory metadata cache (impervious to user comment clearing)
+        if ($._smartHighlighter._metaCache) {
+            var key = textLayer.id ? String(textLayer.id) : (textLayer.name || "default");
+            if ($._smartHighlighter._metaCache[key]) {
+                var cached = $._smartHighlighter._metaCache[key];
+                if (cached && cached.v === 1 && cached.lines && cached.n === cached.lines.length) {
+                    return cached;
+                }
+            }
+        }
+
+        // Priority 2: Fallback to reading layer comment
         var c = textLayer.comment || "";
         var a = c.indexOf($._smartHighlighter.META_OPEN);
         var b = c.indexOf($._smartHighlighter.META_CLOSE);
@@ -64,7 +85,6 @@ $._smartHighlighter.readMeta = function (textLayer) {
     }
 };
 
-// Ø£Ø®Ø° Ù„Ù‚Ø·Ø© Ø³Ø±ÙŠØ¹Ø© Ù…Ù† Ø§Ù„ØµÙ†Ø§Ø¯ÙŠÙ‚ Ø§Ù„Ù‚Ø¯ÙŠÙ…Ø© Ù‚Ø¨Ù„ Ø­Ø°ÙÙ‡Ø§ Ù„Ø­ÙØ¸ Ø§Ù„ØªØ¹Ø¯ÙŠÙ„Ø§Øª Ø§Ù„Ù…Ø­Ù„ÙŠØ© (Snapshot & Reconcile)
 $._smartHighlighter.snapshotBoxes = function (comp, textLayer) {
     var out = [];
     var tag = $._smartHighlighter.LAYER_COMMENT || "SMART_HL_PRO_LAYER";
@@ -234,34 +254,49 @@ $._smartHighlighter.addTimingMarkers = function (inPoint, outPoint, inDur, outDu
 
 // Ù‚Ø±Ø§Ø¡Ø© Ø­Ø§Ù„Ø© Ø§Ù„Ø·Ø¨Ù‚Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© ÙˆÙ…Ø¹Ø¯Ù„ Ø¥Ø·Ø§Ø±Ø§Øª Ø§Ù„ØªØ±ÙƒÙŠØ¨Ø© Ù„Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„Ù„ÙˆØ­Ø© Ù…Ø¹ After Effects (Two-way sync)
 $._smartHighlighter.getLayerState = function (fetchText) {
-    var comp = app.project.activeItem;
-    if (!comp || !(comp instanceof CompItem)) return '{"ok":false,"hasComp":false,"fps":30,"frameDuration":0.033333}';
+    var comp = app.project ? app.project.activeItem : null;
+    if (!comp || !(comp instanceof CompItem)) {
+        return $._smartHighlighter.stringifyJSON({
+            ok: false,
+            hasComp: false,
+            layerName: "",
+            error: "No active composition found"
+        });
+    }
 
     var rawFps = comp.frameRate || 30;
     var fps = Math.round(rawFps * 1000) / 1000;
     var frameDuration = comp.frameDuration || (1 / rawFps);
     var compName = comp.name || "";
-    var compSnippet = '"hasComp":true,"fps":' + fps + ',"frameDuration":' + frameDuration.toFixed(6) + ',"compName":"' + $._smartHighlighter.escMeta(compName) + '",';
+
+    var baseInfo = {
+        hasComp: true,
+        fps: fps,
+        frameDuration: parseFloat(frameDuration.toFixed(6)),
+        compName: compName
+    };
 
     if (comp.selectedLayers.length !== 1) {
-        return '{"ok":false,' + compSnippet + '"layerName":""}';
+        baseInfo.ok = false;
+        baseInfo.layerName = "";
+        return $._smartHighlighter.stringifyJSON(baseInfo);
     }
 
     var lyr = comp.selectedLayers[0];
     var tag = $._smartHighlighter.LAYER_COMMENT || "SMART_HL_PRO_LAYER";
 
-    // Ø­Ù…Ø§ÙŠØ© ØªØ§Ù…Ø©: Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù…Ø§ Ø¥Ø°Ø§ ÙƒØ§Ù† Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙŠØ­Ø¯Ø¯ Ù†ØµØ§Ù‹ Ø£Ùˆ ÙŠØ³ØªØ®Ø¯Ù… Ø£Ø¯Ø§Ø© Ø§Ù„ÙƒØªØ§Ø¨Ø© Ù„ØªÙØ§Ø¯ÙŠ Ø®Ø·Ø£ (76::59)
     var isTextToolActive = false;
     try {
         if (app.toolType === ToolType.Tool_TextH || app.toolType === ToolType.Tool_TextV) {
             isTextToolActive = true;
         }
-    } catch (eTool) {}
+    } catch (eTool) {
+        if ($._smartHighlighter.logError) $._smartHighlighter.logError("toolType", eTool);
+    }
 
     try {
         var textLayer = (lyr instanceof TextLayer) ? lyr : ((lyr instanceof ShapeLayer && lyr.parent) ? lyr.parent : null);
         var tMarkers = textLayer ? $._smartHighlighter.readTimingMarkers(textLayer) : null;
-        var markersSnippet = (tMarkers && tMarkers.inStart !== null) ? ('"timingMarkers":' + JSON.stringify(tMarkers) + ',') : '';
 
         if (lyr instanceof TextLayer) {
             var mColFx = lyr.effect("Master Highlight Color");
@@ -274,21 +309,48 @@ $._smartHighlighter.getLayerState = function (fetchText) {
                 try {
                     txtContent = lyr.property("Source Text").value.text;
                     if ($._smartHighlighter.stripAnchors) txtContent = $._smartHighlighter.stripAnchors(txtContent);
-                } catch (eTxt) {}
+                } catch (eTxt) {
+                    if ($._smartHighlighter.logError) $._smartHighlighter.logError("getText", eTxt);
+                }
             }
-            var safeTxt = $._smartHighlighter.escMeta(txtContent);
 
-            if (!mColFx) return '{"ok":true,"type":"text","hasHighlight":false,' + compSnippet + markersSnippet + '"layerName":"' + $._smartHighlighter.escMeta(lyr.name) + '","text":"' + safeTxt + '"}';
+            if (!mColFx) {
+                var resNoHl = {
+                    ok: true,
+                    type: "text",
+                    hasHighlight: false,
+                    hasComp: baseInfo.hasComp,
+                    fps: baseInfo.fps,
+                    frameDuration: baseInfo.frameDuration,
+                    compName: baseInfo.compName,
+                    layerName: lyr.name,
+                    text: txtContent
+                };
+                if (tMarkers && tMarkers.inStart !== null) resNoHl.timingMarkers = tMarkers;
+                return $._smartHighlighter.stringifyJSON(resNoHl);
+            }
 
             var cVal = mColFx.property(1).value;
             var hex = $._smartHighlighter.rgbToHex(cVal);
-            return '{"ok":true,"type":"text","hasHighlight":true,"scope":"all",' + compSnippet + markersSnippet + '"color":"' + hex + '",' +
-                '"opacity":' + (mOpFx ? mOpFx.property(1).value : 100) + ',' +
-                '"paddingX":' + (pXFx ? pXFx.property(1).value : 8) + ',' +
-                '"paddingY":' + (pYFx ? pYFx.property(1).value : 2) + ',' +
-                '"roundness":' + (rndFx ? rndFx.property(1).value : 0) + ',' +
-                '"layerName":"' + $._smartHighlighter.escMeta(lyr.name) + '",' +
-                '"text":"' + safeTxt + '"}';
+            var resWithHl = {
+                ok: true,
+                type: "text",
+                hasHighlight: true,
+                scope: "all",
+                hasComp: baseInfo.hasComp,
+                fps: baseInfo.fps,
+                frameDuration: baseInfo.frameDuration,
+                compName: baseInfo.compName,
+                color: hex,
+                opacity: mOpFx ? mOpFx.property(1).value : 100,
+                paddingX: pXFx ? pXFx.property(1).value : 8,
+                paddingY: pYFx ? pYFx.property(1).value : 2,
+                roundness: rndFx ? rndFx.property(1).value : 0,
+                layerName: lyr.name,
+                text: txtContent
+            };
+            if (tMarkers && tMarkers.inStart !== null) resWithHl.timingMarkers = tMarkers;
+            return $._smartHighlighter.stringifyJSON(resWithHl);
         }
 
         if (lyr instanceof ShapeLayer && lyr.comment && (lyr.comment === tag || lyr.comment.indexOf("SMART_HL_PHRASE") !== -1) && lyr.parent) {
@@ -322,36 +384,66 @@ $._smartHighlighter.getLayerState = function (fetchText) {
                         parentTxt = lyr.parent.property("Source Text").value.text;
                         if ($._smartHighlighter.stripAnchors) parentTxt = $._smartHighlighter.stripAnchors(parentTxt);
                     }
-                } catch (ePTxt) {}
+                } catch (ePTxt) {
+                    if ($._smartHighlighter.logError) $._smartHighlighter.logError("getParentText", ePTxt);
+                }
             }
-            var safePTxt = $._smartHighlighter.escMeta(parentTxt);
 
-            return '{"ok":true,"type":"shape","hasHighlight":true,"scope":"line","isLocal":' + isLocal + ',' + compSnippet + markersSnippet +
-                '"color":"' + hexS + '",' +
-                '"opacity":' + curOp + ',' +
-                '"paddingX":' + curPX + ',' +
-                '"paddingY":' + curPY + ',' +
-                '"roundness":' + curRnd + ',' +
-                '"layerName":"' + $._smartHighlighter.escMeta(lyr.name) + '",' +
-                '"text":"' + safePTxt + '"}';
+            var resShape = {
+                ok: true,
+                type: "shape",
+                hasHighlight: true,
+                scope: "line",
+                isLocal: isLocal,
+                hasComp: baseInfo.hasComp,
+                fps: baseInfo.fps,
+                frameDuration: baseInfo.frameDuration,
+                compName: baseInfo.compName,
+                color: hexS,
+                opacity: curOp,
+                paddingX: curPX,
+                paddingY: curPY,
+                roundness: curRnd,
+                layerName: lyr.name,
+                text: parentTxt
+            };
+            if (tMarkers && tMarkers.inStart !== null) resShape.timingMarkers = tMarkers;
+            return $._smartHighlighter.stringifyJSON(resShape);
         }
-    } catch (e) {
-        return '{"ok":false,' + compSnippet + '"error":"' + $._smartHighlighter.escMeta(e.toString()) + '"}';
-    }
 
-    return '{"ok":false,' + compSnippet + '"layerName":""}';
+        // Unknown layer type selected
+        baseInfo.ok = false;
+        baseInfo.layerName = lyr.name || "";
+        return $._smartHighlighter.stringifyJSON(baseInfo);
+
+    } catch (e) {
+        baseInfo.ok = false;
+        baseInfo.error = e.toString();
+        return $._smartHighlighter.stringifyJSON(baseInfo);
+    }
 };
 
 // Ø§Ø³ØªØ¹Ù„Ø§Ù… Ù…Ø¨Ø§Ø´Ø± ÙˆØ³Ø±ÙŠØ¹ Ø¹Ù† Ù…Ø¹Ø¯Ù„ Ø¥Ø·Ø§Ø±Ø§Øª Ø§Ù„ØªØ±ÙƒÙŠØ¨Ø© Ø§Ù„Ù†Ø´Ø·Ø© ÙÙŠ After Effects
 $._smartHighlighter.getCompFps = function () {
-    var comp = app.project.activeItem;
+    var comp = app.project ? app.project.activeItem : null;
     if (!comp || !(comp instanceof CompItem)) {
-        return '{"ok":false,"hasComp":false,"fps":30,"frameDuration":0.033333}';
+        return $._smartHighlighter.stringifyJSON({
+            ok: false,
+            hasComp: false,
+            fps: 30,
+            frameDuration: 0.033333
+        });
     }
     var rawFps = comp.frameRate || 30;
     var fps = Math.round(rawFps * 1000) / 1000;
     var frameDuration = comp.frameDuration || (1 / rawFps);
-    return '{"ok":true,"hasComp":true,"fps":' + fps + ',"frameDuration":' + frameDuration.toFixed(6) + ',"compName":"' + $._smartHighlighter.escMeta(comp.name) + '"}';
+    return $._smartHighlighter.stringifyJSON({
+        ok: true,
+        hasComp: true,
+        fps: fps,
+        frameDuration: parseFloat(frameDuration.toFixed(6)),
+        compName: comp.name || ""
+    });
 };
 
 // ØªØ¨Ø¯ÙŠÙ„ Ù†Ù…Ø· Ø§Ù„ØªØ­ÙƒÙ… (Master vs Local) Ù„Ù„Ø·Ø¨Ù‚Ø§Øª Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© ÙÙŠ After Effects

@@ -569,8 +569,23 @@
                 <!-- Applied Phrases Tray (Cumulative Multi-Color Highlights) -->
                 <div class="applied-phrases-card" id="applied-phrases-wrap" style="display: none;">
                     <div class="applied-phrases-header">
-                        <span class="applied-phrases-title">Applied Phrases in AE</span>
-                        <span id="applied-phrases-count" class="applied-count-badge">0</span>
+                        <div class="applied-header-left">
+                            <span class="applied-phrases-title">Applied Phrases in AE</span>
+                            <span id="applied-phrases-count" class="applied-count-badge">0</span>
+                        </div>
+                        <button type="button" id="btn-phrase-resync" class="btn-phrase-resync" title="Re-sync highlight positions if text was modified in AE (إعادة مواءمة التظليل عند تعديل النص في After Effects)">
+                            <span class="resync-icon">🔄</span> Re-Sync
+                        </button>
+                    </div>
+                    <!-- Visual Phrase Mini-Sequencer Track [TASK-601 / EV-05] -->
+                    <div class="mini-sequencer-track" id="phrase-mini-sequencer" style="display: none;">
+                        <div class="sequencer-bar-header">
+                            <span class="sequencer-title">⏱️ Visual Sequencer</span>
+                            <span id="sequencer-range" class="sequencer-range">Timeline Overview</span>
+                        </div>
+                        <div class="sequencer-timeline" id="sequencer-timeline-bars">
+                            <!-- Populated dynamically by HS.PhraseManager -->
+                        </div>
                     </div>
                     <div id="applied-phrases-list" class="applied-phrases-list">
                         <!-- Dynamic badges populated by HS.PhraseManager -->
@@ -582,7 +597,7 @@
             <section class="studio-card">
                 <!-- Hidden inputs to preserve 100% JS backward compatibility -->
                 <input type="hidden" id="phrase-style-select" value="box">
-                <input type="hidden" id="phrase-motion-select" value="typewriter">
+                <input type="hidden" id="phrase-motion-select" value="wipe">
                 <span id="phrase-color-hex" style="display: none;">#2ECC71</span>
 
                 <!-- Compact Phrase Appearance Toolbar Row: Shape Buttons + Animation Buttons + Color Trigger -->
@@ -615,19 +630,25 @@
 
                     <!-- 2. Phrase Animation / Motion Group -->
                     <div class="icon-btn-group" title="Phrase Animation (نوع حركة تظليل العبارة)">
-                        <button type="button" class="square-icon-btn phrase-motion-btn active" data-motion="typewriter" title="Typewriter Sync (كتابة متزامنة)">
+                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="typewriter" title="Typewriter Sync (كتابة متزامنة)">
                             <!-- Lucide: Type / Typewriter -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
                         </button>
-                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="wipe" title="Smooth Wipe (مسح تدريجي ناعم)">
+                        <button type="button" class="square-icon-btn phrase-motion-btn active" data-motion="wipe" title="Smooth Wipe (مسح تدريجي ناعم)">
                             <!-- Lucide: Wand2 / Smooth Wipe -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 12 18-9-9 18-2-7-7-2Z"/></svg>
                         </button>
-                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="pop" title="Scale Pop (ظهور بتكبير مرن)">
+                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="pop" title="Clean Pop (ظهور مصقول هادئ)">
                             <!-- Lucide: Sparkles / Pop -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
                         </button>
-                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="snap" title="Snap Jump (قفز فوري)">
+                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="elastic" title="Elastic Bounce (ارتداد نابض مرن)">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14c2-4 4-8 8-8s6 8 8 8"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="snappy" title="Snappy Ease-Out (انزلاق قطعي فوري)">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </button>
+                        <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="snap" title="Instant Marker (ماركر فوري مباشر)">
                             <!-- Lucide: Zap -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                         </button>
@@ -697,8 +718,8 @@
                 <!-- Phrase Motion Dynamics & Outro Controls (Phase 3) -->
                 <div class="phrase-timing-row">
                     <div class="icon-btn-group" title="Timing & Sequencing (التوقيت والتسلسل)">
-                        <label class="square-icon-btn chip-toggle" id="chip-phrase-outro" data-active="false" title="Outro Exit Animation (حركة خروج للعبارة)">
-                            <input type="checkbox" id="phrase-outro-check">
+                        <label class="square-icon-btn chip-toggle active" id="chip-phrase-outro" data-active="true" title="Outro Exit Animation (حركة خروج للعبارة)">
+                            <input type="checkbox" id="phrase-outro-check" checked>
                             <!-- Lucide: LogOut -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                         </label>
@@ -709,14 +730,14 @@
                         </label>
                     </div>
 
-                    <div class="precision-input-box disabled" id="phrase-hold-col">
+                    <div class="precision-input-box" id="phrase-hold-col">
                         <label class="scrub-label" data-target="phrase-hold-time" title="Duration phrase stays visible before outro">
                             <!-- Lucide: Hourglass -->
                             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>
                             <span class="scrub-text">Hold</span>
                         </label>
                         <div class="input-val-wrap">
-                            <input type="text" id="phrase-hold-time" class="time-input" value="1:05" disabled spellcheck="false" autocomplete="off">
+                            <input type="text" id="phrase-hold-time" class="time-input" value="1:05" spellcheck="false" autocomplete="off">
                             <button type="button" class="unit-tag unit-toggle-btn" title="Click to cycle time format: s:f ➔ f ➔ s">s:f</button>
                         </div>
                         <div class="stepper-actions">

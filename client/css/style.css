@@ -2169,6 +2169,32 @@ label {
     letter-spacing: 0.5px;
 }
 
+.applied-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-phrase-resync {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-muted);
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.15s ease;
+}
+
+.btn-phrase-resync:hover {
+    background: rgba(255, 209, 59, 0.15);
+    border-color: rgba(255, 209, 59, 0.4);
+    color: var(--accent-amber);
+}
+
 .applied-count-badge {
     background: #20202c;
     color: var(--accent-amber);
@@ -2197,12 +2223,34 @@ label {
     font-weight: 600;
     color: var(--text-primary);
     max-width: 100%;
+    cursor: pointer;
+    transition: border-color 0.12s ease;
+}
+
+.applied-phrase-tag:hover {
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .applied-phrase-dot {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     flex-shrink: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.applied-phrase-dot:hover {
+    transform: scale(1.3);
+    box-shadow: 0 0 5px currentColor;
+}
+
+.applied-phrase-line-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    font-size: 8px;
+    padding: 0 3px;
+    border-radius: 2px;
 }
 
 .applied-phrase-text {
@@ -2210,6 +2258,7 @@ label {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 140px;
+    cursor: pointer;
 }
 
 .applied-phrase-del {
@@ -2467,3 +2516,63 @@ label {
 }
 
 
+
+/* ==========================================================================
+   MINI-SEQUENCER TIMELINE TRACK (TASK-601 / EV-05)
+   ========================================================================== */
+.mini-sequencer-track {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+}
+
+.sequencer-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 10px;
+    color: var(--text-muted, #888);
+}
+
+.sequencer-title {
+    font-weight: 600;
+    color: var(--text-main, #eee);
+}
+
+.sequencer-timeline {
+    position: relative;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 4px;
+}
+
+.sequencer-bar-item {
+    height: 14px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sequencer-bar-item:hover {
+    opacity: 0.9;
+    transform: scaleY(1.1);
+}

@@ -7,7 +7,6 @@
 
     var HS = window.HS || {};
     window.HS = HS;
-
     HS.PhraseManager = {
         updateBadge: function () {
             if (!HS.DOM) return;
@@ -92,6 +91,7 @@
 
             if (!HS.DOM || !HS.DOM.tokensBoard) return;
             HS.DOM.tokensBoard.innerHTML = "";
+            HS.PhraseManager.initDelegation();
 
             var hasArabic = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(rawText);
             HS.DOM.tokensBoard.dir = hasArabic ? "rtl" : "ltr";
@@ -140,81 +140,6 @@
                     btn.textContent = wordStr;
                     btn.title = 'Word #' + (tokenIdx + 1) + ' (Chars ' + tokenObj.charStart + '..' + tokenObj.charEnd + ')';
 
-                    (function (idx, element) {
-                        element.addEventListener("click", function (e) {
-                            // If this word is already highlighted in AE, click acts as an instant Eraser
-                            var appliedId = element.dataset.appliedPhraseId;
-                            if (appliedId) {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                HS.PhraseManager.removePhrase(appliedId);
-                                return;
-                            }
-
-                            if (e.shiftKey && HS.State.lastClickedTokenIndex !== -1) {
-                                var fromIdx = Math.min(HS.State.lastClickedTokenIndex, idx);
-                                var toIdx = Math.max(HS.State.lastClickedTokenIndex, idx);
-                                for (var k = fromIdx; k <= toIdx; k++) {
-                                    var btnK = HS.DOM.tokensBoard ? HS.DOM.tokensBoard.querySelector('.word-token[data-token-index="' + k + '"]') : null;
-                                    if (btnK && btnK.dataset.appliedPhraseId) continue;
-                                    if (HS.State.selectedTokenIndices.indexOf(k) === -1) {
-                                        HS.State.selectedTokenIndices.push(k);
-                                    }
-                                }
-                            } else {
-                                var pos = HS.State.selectedTokenIndices.indexOf(idx);
-                                if (pos === -1) {
-                                    HS.State.selectedTokenIndices.push(idx);
-                                } else {
-                                    HS.State.selectedTokenIndices.splice(pos, 1);
-                                }
-                                HS.State.lastClickedTokenIndex = idx;
-                            }
-                            HS.PhraseManager.syncTokenStyles();
-                            HS.PhraseManager.updateBadge();
-                        });
-
-                        element.addEventListener("mousedown", function (e) {
-                            if (element.dataset.appliedPhraseId) return;
-                            if (e.button === 0 && !e.shiftKey) {
-                                HS.State.isDraggingTokenSelect = true;
-                                HS.State.dragSelectActive = (HS.State.selectedTokenIndices.indexOf(idx) === -1);
-                            }
-                        });
-
-                        element.addEventListener("mouseenter", function () {
-                            var phrId = element.dataset.appliedPhraseId;
-                            if (phrId) {
-                                if (HS.DOM.tokensBoard) {
-                                    HS.DOM.tokensBoard.querySelectorAll('.word-token[data-applied-phrase-id="' + phrId + '"]').forEach(function (el) {
-                                        el.classList.add("eraser-hover");
-                                    });
-                                }
-                                return;
-                            }
-
-                            if (HS.State.isDraggingTokenSelect) {
-                                var p = HS.State.selectedTokenIndices.indexOf(idx);
-                                if (HS.State.dragSelectActive && p === -1) {
-                                    HS.State.selectedTokenIndices.push(idx);
-                                } else if (!HS.State.dragSelectActive && p !== -1) {
-                                    HS.State.selectedTokenIndices.splice(p, 1);
-                                }
-                                HS.PhraseManager.syncTokenStyles();
-                                HS.PhraseManager.updateBadge();
-                            }
-                        });
-
-                        element.addEventListener("mouseleave", function () {
-                            var phrId = element.dataset.appliedPhraseId;
-                            if (phrId && HS.DOM.tokensBoard) {
-                                HS.DOM.tokensBoard.querySelectorAll('.word-token[data-applied-phrase-id="' + phrId + '"]').forEach(function (el) {
-                                    el.classList.remove("eraser-hover");
-                                });
-                            }
-                        });
-                    })(tokenIdx, btn);
-
                     frag.appendChild(btn);
                     tokenIdx++;
             }
@@ -250,19 +175,60 @@
                             HS.DOM.appliedPhrasesWrap.style.display = (count > 0) ? "flex" : "none";
                             HS.DOM.appliedPhrasesList.innerHTML = "";
 
+                            // [EV-05 / TASK-601] Populate Interactive Mini-Sequencer Track
+                            var seqWrap = document.getElementById("phrase-mini-sequencer");
+                            var seqBars = document.getElementById("sequencer-timeline-bars");
+                            if (seqWrap && seqBars) {
+                                seqWrap.style.display = (count > 0) ? "block" : "none";
+                                seqBars.innerHTML = "";
+                                HS.State.appliedPhrases.forEach(function (sqPhr, sqIdx) {
+                                    var barEl = document.createElement("div");
+                                    barEl.className = "sequencer-bar-item";
+                                    barEl.style.backgroundColor = sqPhr.color || "#2ECC71";
+                                    barEl.style.flex = "1";
+                                    barEl.textContent = sqPhr.text || ("Phrase " + (sqIdx + 1));
+                                    barEl.title = 'Click to locate on AE timeline: ' + sqPhr.text;
+                                    barEl.addEventListener("click", function () {
+                                        HS.PhraseManager.locatePhrase(sqPhr.id);
+                                    });
+                                    seqBars.appendChild(barEl);
+                                });
+                            }
+
                             HS.State.appliedPhrases.forEach(function (phr) {
                                 var tag = document.createElement("div");
                                 tag.className = "applied-phrase-tag";
                                 tag.dataset.phraseId = phr.id;
 
+                                // Live Color Switcher via invisible input
+                                var colInput = document.createElement("input");
+                                colInput.type = "color";
+                                colInput.value = phr.color || "#2ECC71";
+                                colInput.style.display = "none";
+                                colInput.addEventListener("change", function (e) {
+                                    e.stopPropagation();
+                                    var newCol = this.value;
+                                    dot.style.background = newCol;
+                                    HS.PhraseManager.setPhraseColor(phr.id, newCol);
+                                });
+
                                 var dot = document.createElement("span");
                                 dot.className = "applied-phrase-dot";
                                 dot.style.background = phr.color || "#2ECC71";
+                                dot.title = "Click to change color live in AE (تغيير اللون حياً)";
+                                dot.addEventListener("click", function (e) {
+                                    e.stopPropagation();
+                                    colInput.click();
+                                });
 
                                 var txt = document.createElement("span");
                                 txt.className = "applied-phrase-text";
                                 txt.textContent = phr.text || "Phrase";
-                                txt.title = (phr.text || "") + " (" + (phr.boxCount || 1) + " box)";
+                                txt.title = (phr.text || "") + " — Click to jump playhead in AE (انقر للانتقال لموقع العبارة على التايملاين)";
+                                txt.addEventListener("click", function (e) {
+                                    e.stopPropagation();
+                                    HS.PhraseManager.locatePhrase(phr.id);
+                                });
 
                                 var delBtn = document.createElement("button");
                                 delBtn.type = "button";
@@ -287,8 +253,18 @@
                                     });
                                 });
 
+                                tag.appendChild(colInput);
                                 tag.appendChild(dot);
                                 tag.appendChild(txt);
+
+                                if (phr.boxCount && phr.boxCount > 1) {
+                                    var badge = document.createElement("span");
+                                    badge.className = "applied-phrase-line-badge";
+                                    badge.textContent = phr.boxCount + " lines";
+                                    badge.title = "Multi-line wrapped phrase (" + phr.boxCount + " lines linked)";
+                                    tag.appendChild(badge);
+                                }
+
                                 tag.appendChild(delBtn);
                                 HS.DOM.appliedPhrasesList.appendChild(tag);
                             });
@@ -358,6 +334,49 @@
             HS.PhraseManager.updateBadge();
         },
 
+        setPhraseColor: function (phraseId, hexColor) {
+            HS.setStatus("Updating phrase color in AE...");
+            HS.Bridge.ensureLoaded(function () {
+                var evalCmd = "$._smartHighlighter.setPhraseColor(" + JSON.stringify(phraseId) + ", " + JSON.stringify(hexColor) + ")";
+                HS.Bridge.eval(evalCmd, function (res) {
+                    if (res && res.indexOf("SUCCESS") !== -1) {
+                        HS.setStatus("Phrase color updated");
+                        HS.PhraseManager.syncAppliedPhrases();
+                    } else {
+                        HS.setStatus(res ? res.replace("ERROR:", "").trim() : "Failed to update color", true);
+                    }
+                });
+            });
+        },
+
+        locatePhrase: function (phraseId) {
+            HS.setStatus("Locating phrase in AE timeline...");
+            HS.Bridge.ensureLoaded(function () {
+                var evalCmd = "$._smartHighlighter.locatePhrase(" + JSON.stringify(phraseId) + ")";
+                HS.Bridge.eval(evalCmd, function (res) {
+                    if (res && res.indexOf("SUCCESS") !== -1) {
+                        HS.setStatus(res.replace("SUCCESS: ", ""));
+                    } else {
+                        HS.setStatus(res ? res.replace("ERROR:", "").trim() : "Failed to locate phrase", true);
+                    }
+                });
+            });
+        },
+
+        resyncPhrases: function () {
+            HS.setStatus("Re-syncing phrase highlight bounds...");
+            HS.Bridge.ensureLoaded(function () {
+                HS.Bridge.eval("$._smartHighlighter.resyncPhraseHighlights()", function (res) {
+                    if (res && res.indexOf("SUCCESS") !== -1) {
+                        HS.showReport(res);
+                        HS.PhraseManager.syncAppliedPhrases();
+                    } else {
+                        HS.setStatus(res ? res.replace("ERROR:", "").trim() : "Re-sync failed", true);
+                    }
+                });
+            });
+        },
+
         removePhrase: function (phraseId) {
             HS.setStatus("Removing phrase highlight...");
             HS.Bridge.ensureLoaded(function () {
@@ -374,6 +393,13 @@
 
         initEvents: function () {
             if (!HS.DOM) return;
+            // Phrase Re-Sync Button
+            var btnResync = document.getElementById("btn-phrase-resync");
+            if (btnResync) {
+                btnResync.addEventListener("click", function () {
+                    HS.PhraseManager.resyncPhrases();
+                });
+            }
 
             // Phrase Selection Clear
             if (HS.DOM.btnPhraseClearSel) {
@@ -562,6 +588,101 @@
             }
             return matched;
         }
+    };
+
+    // [AP-08 REMEDIATION] Centralized Event Delegation on tokensBoard (O(1) memory footprint)
+    HS.PhraseManager.initDelegation = function () {
+        if (!HS.DOM || !HS.DOM.tokensBoard || HS.PhraseManager._boardDelegationInitialized) return;
+        HS.PhraseManager._boardDelegationInitialized = true;
+
+        var board = HS.DOM.tokensBoard;
+
+        board.addEventListener("click", function (e) {
+            var element = e.target.closest(".word-token");
+            if (!element) return;
+            var idx = parseInt(element.dataset.tokenIndex, 10);
+            if (isNaN(idx)) return;
+
+            // If already highlighted in AE, click acts as an instant Eraser
+            var appliedId = element.dataset.appliedPhraseId;
+            if (appliedId) {
+                e.stopPropagation();
+                e.preventDefault();
+                HS.PhraseManager.removePhrase(appliedId);
+                return;
+            }
+
+            if (e.shiftKey && HS.State.lastClickedTokenIndex !== -1) {
+                var fromIdx = Math.min(HS.State.lastClickedTokenIndex, idx);
+                var toIdx = Math.max(HS.State.lastClickedTokenIndex, idx);
+                for (var k = fromIdx; k <= toIdx; k++) {
+                    var btnK = board.querySelector('.word-token[data-token-index="' + k + '"]');
+                    if (btnK && btnK.dataset.appliedPhraseId) continue;
+                    if (HS.State.selectedTokenIndices.indexOf(k) === -1) {
+                        HS.State.selectedTokenIndices.push(k);
+                    }
+                }
+            } else {
+                var pos = HS.State.selectedTokenIndices.indexOf(idx);
+                if (pos === -1) {
+                    HS.State.selectedTokenIndices.push(idx);
+                } else {
+                    HS.State.selectedTokenIndices.splice(pos, 1);
+                }
+                HS.State.lastClickedTokenIndex = idx;
+            }
+            HS.PhraseManager.syncTokenStyles();
+            HS.PhraseManager.updateBadge();
+        });
+
+        board.addEventListener("mousedown", function (e) {
+            var element = e.target.closest(".word-token");
+            if (!element || element.dataset.appliedPhraseId) return;
+            var idx = parseInt(element.dataset.tokenIndex, 10);
+            if (isNaN(idx)) return;
+
+            if (e.button === 0 && !e.shiftKey) {
+                HS.State.isDraggingTokenSelect = true;
+                HS.State.dragSelectActive = (HS.State.selectedTokenIndices.indexOf(idx) === -1);
+            }
+        });
+
+        board.addEventListener("mouseover", function (e) {
+            var element = e.target.closest(".word-token");
+            if (!element) return;
+            var phrId = element.dataset.appliedPhraseId;
+            if (phrId) {
+                board.querySelectorAll('.word-token[data-applied-phrase-id="' + phrId + '"]').forEach(function (el) {
+                    el.classList.add("eraser-hover");
+                });
+                return;
+            }
+
+            var idx = parseInt(element.dataset.tokenIndex, 10);
+            if (isNaN(idx)) return;
+
+            if (HS.State.isDraggingTokenSelect) {
+                var p = HS.State.selectedTokenIndices.indexOf(idx);
+                if (HS.State.dragSelectActive && p === -1) {
+                    HS.State.selectedTokenIndices.push(idx);
+                } else if (!HS.State.dragSelectActive && p !== -1) {
+                    HS.State.selectedTokenIndices.splice(p, 1);
+                }
+                HS.PhraseManager.syncTokenStyles();
+                HS.PhraseManager.updateBadge();
+            }
+        });
+
+        board.addEventListener("mouseout", function (e) {
+            var element = e.target.closest(".word-token");
+            if (!element) return;
+            var phrId = element.dataset.appliedPhraseId;
+            if (phrId) {
+                board.querySelectorAll('.word-token[data-applied-phrase-id="' + phrId + '"]').forEach(function (el) {
+                    el.classList.remove("eraser-hover");
+                });
+            }
+        });
     };
 
     window.addEventListener("mouseup", function () {

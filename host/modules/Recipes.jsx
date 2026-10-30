@@ -83,54 +83,46 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
             '    if (!anim) { try { anim = pLayer.text.animator("Typewriter"); } catch(e2) {} }\n' +
             '    if (anim && anim.numProperties >= 1) {\n' +
             '        try {\n' +
-            '            var sels = anim.property("ADBE Text Selectors");\n' +
-            '            if (sels && sels.numProperties >= 1) {\n' +
-            '                var lineNum = ' + lineNum + ';\n' +
-            '                var sel = null;\n' +
-            '                try { sel = sels.property("Range Selector Line " + lineNum); } catch(eSL) {}\n' +
-            '                if (!sel) { try { sel = sels.property("Range Selector Intro"); } catch(eSI) {} }\n' +
-            '                if (!sel) { try { sel = sels.property(1); } catch(eS1) {} }\n' +
-            '                if (sel) {\n' +
-            '                    var unitType = 1;\n' +
+            '            var lineNum = ' + lineNum + ';\n' +
+            '            var sel = null;\n' +
+            '            try { sel = anim.selector("Range Selector Line " + lineNum); } catch(eSL) {}\n' +
+            '            if (!sel) { try { sel = anim.selector("Range Selector Intro"); } catch(eSI) {} }\n' +
+            '            if (!sel) { try { sel = anim.selector(1); } catch(eS1) {} }\n' +
+            '            if (sel) {\n' +
+            '                var unitType = 1;\n' +
+            '                try {\n' +
+            '                    if (sel.advanced && sel.advanced.basedOn) unitType = sel.advanced.basedOn.value;\n' +
+            '                } catch(eUT) {}\n' +
+            '                var c1 = (unitType == 3) ? ' + w1.toFixed(4) + ' : ((unitType == 4) ? ' + l1.toFixed(4) + ' : ' + c1.toFixed(4) + ');\n' +
+            '                var c2 = (unitType == 3) ? ' + w2.toFixed(4) + ' : ((unitType == 4) ? ' + l2.toFixed(4) + ' : ' + c2.toFixed(4) + ');\n' +
+            '                var pVal = 0;\n' +
+            '                var pStart = null; try { pStart = sel.start; } catch(e1) {}\n' +
+            '                var pEnd = null; try { pEnd = sel.end; } catch(e2) {}\n' +
+            '                if (pStart && (pStart.numKeys > 0 || pStart.expressionEnabled)) { pVal = pStart.value; }\n' +
+            '                else if (pEnd && (pEnd.numKeys > 0 || pEnd.expressionEnabled)) { pVal = pEnd.value; }\n' +
+            '                else if (pStart) { pVal = pStart.value; }\n' +
+            '                else if (pEnd) { pVal = pEnd.value; }\n' +
+            '                res = (pVal <= c1) ? 0 : ((pVal >= c2) ? 100 : linear(pVal, c1, c2, 0, 100));\n' +
+            '                var outSel = null;\n' +
+            '                try { outSel = anim.selector("Range Selector Outro Line " + lineNum); } catch(eOL) {}\n' +
+            '                if (!outSel) { try { outSel = anim.selector("Range Selector Outro"); } catch(eOI) {} }\n' +
+            '                if (!outSel) {\n' +
             '                    try {\n' +
-            '                        var adv = sel.property("ADBE Text Range Advanced");\n' +
-            '                        if (!adv) adv = sel.property("Advanced");\n' +
-            '                        if (adv) {\n' +
-            '                            var bProp = adv.property("ADBE Text Range Type2");\n' +
-            '                            if (bProp) unitType = bProp.value;\n' +
-            '                        }\n' +
-            '                    } catch(eUT) {}\n' +
-            '                    var c1 = (unitType == 3) ? ' + w1.toFixed(4) + ' : ((unitType == 4) ? ' + l1.toFixed(4) + ' : ' + c1.toFixed(4) + ');\n' +
-            '                    var c2 = (unitType == 3) ? ' + w2.toFixed(4) + ' : ((unitType == 4) ? ' + l2.toFixed(4) + ' : ' + c2.toFixed(4) + ');\n' +
-            '                    var pVal = 0;\n' +
-            '                    var pStart = null; try { pStart = sel.property("ADBE Text Percent Start"); } catch(e1) { try { pStart = sel.property("Start"); } catch(e11) {} }\n' +
-            '                    var pEnd = null; try { pEnd = sel.property("ADBE Text Percent End"); } catch(e2) { try { pEnd = sel.property("End"); } catch(e22) {} }\n' +
-            '                    if (pStart && (pStart.numKeys > 0 || pStart.expressionEnabled)) { pVal = pStart.value; }\n' +
-            '                    else if (pEnd && (pEnd.numKeys > 0 || pEnd.expressionEnabled)) { pVal = pEnd.value; }\n' +
-            '                    else if (pStart) { pVal = pStart.value; }\n' +
-            '                    else if (pEnd) { pVal = pEnd.value; }\n' +
-            '                    res = (pVal <= c1) ? 0 : ((pVal >= c2) ? 100 : linear(pVal, c1, c2, 0, 100));\n' +
-            '                    var outSel = null;\n' +
-            '                    try { outSel = sels.property("Range Selector Outro Line " + lineNum); } catch(eOL) {}\n' +
-            '                    if (!outSel) { try { outSel = sels.property("Range Selector Outro"); } catch(eOI) {} }\n' +
-            '                    if (!outSel && sels.numProperties == 2) {\n' +
-            '                        try {\n' +
-            '                            var cand2 = sels.property(2);\n' +
-            '                            if (cand2 && cand2.name.indexOf("Line") == -1) outSel = cand2;\n' +
-            '                        } catch(eO2) {}\n' +
-            '                    }\n' +
-            '                    if (outSel) {\n' +
-            '                        var oStart = null; try { oStart = outSel.property("ADBE Text Percent Start"); } catch(e3) { try { oStart = outSel.property("Start"); } catch(e33) {} }\n' +
-            '                        var oEnd = null; try { oEnd = outSel.property("ADBE Text Percent End"); } catch(e4) { try { oEnd = outSel.property("End"); } catch(e44) {} }\n' +
-            '                        if (oStart && (oStart.numKeys > 0 || oStart.expressionEnabled)) {\n' +
-            '                            var oVal = oStart.value;\n' +
-            '                            var outPct = (oVal >= c2) ? 100 : ((oVal <= c1) ? 0 : linear(oVal, c1, c2, 0, 100));\n' +
-            '                            res = Math.min(res, outPct);\n' +
-            '                        } else if (oEnd && (oEnd.numKeys > 0 || oEnd.expressionEnabled)) {\n' +
-            '                            var oVal2 = oEnd.value;\n' +
-            '                            var outPct2 = (oVal2 <= c1) ? 100 : ((oVal2 >= c2) ? 0 : linear(oVal2, c1, c2, 100, 0));\n' +
-            '                            res = Math.min(res, outPct2);\n' +
-            '                        }\n' +
+            '                        var cand2 = anim.selector(2);\n' +
+            '                        if (cand2 && cand2.name.indexOf("Line") == -1) outSel = cand2;\n' +
+            '                    } catch(eO2) {}\n' +
+            '                }\n' +
+            '                if (outSel) {\n' +
+            '                    var oStart = null; try { oStart = outSel.start; } catch(e3) {}\n' +
+            '                    var oEnd = null; try { oEnd = outSel.end; } catch(e4) {}\n' +
+            '                    if (oStart && (oStart.numKeys > 0 || oStart.expressionEnabled)) {\n' +
+            '                        var oVal = oStart.value;\n' +
+            '                        var outPct = (oVal >= c2) ? 100 : ((oVal <= c1) ? 0 : linear(oVal, c1, c2, 0, 100));\n' +
+            '                        res = Math.min(res, outPct);\n' +
+            '                    } else if (oEnd && (oEnd.numKeys > 0 || oEnd.expressionEnabled)) {\n' +
+            '                        var oVal2 = oEnd.value;\n' +
+            '                        var outPct2 = (oVal2 <= c1) ? 100 : ((oVal2 >= c2) ? 0 : linear(oVal2, c1, c2, 100, 0));\n' +
+            '                        res = Math.min(res, outPct2);\n' +
             '                    }\n' +
             '                }\n' +
             '            }\n' +
@@ -202,19 +194,11 @@ $._smartHighlighter.recipes.registerMotion("typewriter", {
                 '        try { anim = pLayer.text.animator("Typewriter Sync"); } catch(e01) {}\n' +
                 '        if (!anim) { try { anim = pLayer.text.animator("Typewriter"); } catch(e02) {} }\n' +
                 '        if (anim) {\n' +
-                '            var sels = anim.property("ADBE Text Selectors");\n' +
                 '            var sel = null;\n' +
-                '            try { sel = sels.property("Range Selector Line ' + lineNum + '"); } catch(eSL) {}\n' +
-                '            if (!sel) { try { sel = sels.property(1); } catch(eS1) {} }\n' +
-                '            if (sel) {\n' +
-                '                var adv = sel.property("ADBE Text Range Advanced");\n' +
-                '                if (!adv) adv = sel.property("Advanced");\n' +
-                '                if (adv) {\n' +
-                '                    var sm = adv.property("ADBE Text Range Smoothness");\n' +
-                '                    if (!sm) sm = adv.property("ADBE Text Selector Smoothness");\n' +
-                '                    if (!sm) sm = adv.property("Smoothness");\n' +
-                '                    if (sm) smVal = sm.value;\n' +
-                '                }\n' +
+                '            try { sel = anim.selector("Range Selector Line ' + lineNum + '"); } catch(eSL) {}\n' +
+                '            if (!sel) { try { sel = anim.selector(1); } catch(eS1) {} }\n' +
+                '            if (sel && sel.advanced && sel.advanced.smoothness) {\n' +
+                '                smVal = sel.advanced.smoothness.value;\n' +
                 '            }\n' +
                 '        }\n' +
                 '    } catch(eSm) {}\n' +
@@ -301,45 +285,67 @@ $._smartHighlighter.recipes.registerMotion("pop", {
 
     applyTransformScale: function (scaleProp, ctx) {
         var scaleExpr = 
-            'var p = 100; try { p = effect("Progress")(1); } catch(eP) {}\n' +
-            'var outVal = [100, 100];\n' +
-            'if (p.numKeys >= 2) {\n' +
-            '    var k1 = p.key(1);\n' +
-            '    var k2 = p.key(2);\n' +
-            '    if (time < k1.time) {\n' +
-            '        outVal = [0, 0];\n' +
-            '    } else if (time <= k2.time) {\n' +
-            '        var tNorm = (time - k1.time) / Math.max(0.001, (k2.time - k1.time));\n' +
-            '        var s = easeOut(tNorm, 0, 1, 0, 118);\n' +
-            '        outVal = [s, s];\n' +
+            'var useM = 0; try { useM = effect("Use Timeline Markers")(1); } catch(eUM) {}\n' +
+            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 1) {\n' +
+            '    var dIn = 0.20; try { dIn = Math.max(0.01, effect("Intro Duration (s)")(1)); } catch(eDI) {}\n' +
+            '    var dOut = 0.20; try { dOut = Math.max(0.01, effect("Outro Duration (s)")(1)); } catch(eDO) {}\n' +
+            '    var tIn = thisLayer.inPoint;\n' +
+            '    try { tIn = thisLayer.marker.key("IN").time; } catch(eK1) { try { tIn = thisLayer.marker.key(1).time; } catch(eK2) {} }\n' +
+            '    var hasOut = false;\n' +
+            '    var tOut = 0;\n' +
+            '    if (thisLayer.marker.numKeys >= 2) {\n' +
+            '        try { tOut = thisLayer.marker.key("OUT").time; hasOut = true; } catch(eKO) {}\n' +
+            '    }\n' +
+            '    var s = 100;\n' +
+            '    if (time < tIn) {\n' +
+            '        s = 0;\n' +
+            '    } else if (time < tIn + dIn) {\n' +
+            '        s = easeOut(time, tIn, tIn + dIn, 0, 100);\n' +
+            '    } else if (hasOut && time >= tOut) {\n' +
+            '        s = easeIn(time, tOut, tOut + dOut, 100, 0);\n' +
             '    } else {\n' +
-            '        var hasExit = (p.numKeys >= 4);\n' +
-            '        var k3 = hasExit ? p.key(3) : null;\n' +
-            '        var k4 = hasExit ? p.key(4) : null;\n' +
-            '        if (hasExit && time >= k4.time) {\n' +
+            '        s = 100;\n' +
+            '    }\n' +
+            '    [s, s];\n' +
+            '} else {\n' +
+            '    var p = 100; try { p = effect("Progress")(1); } catch(eP) {}\n' +
+            '    var outVal = [100, 100];\n' +
+            '    if (p.numKeys >= 2) {\n' +
+            '        var k1 = p.key(1);\n' +
+            '        var k2 = p.key(2);\n' +
+            '        if (time < k1.time) {\n' +
             '            outVal = [0, 0];\n' +
-            '        } else if (hasExit && time >= k3.time) {\n' +
-            '            var tOutNorm = (time - k3.time) / Math.max(0.001, (k4.time - k3.time));\n' +
-            '            var sOut = easeIn(tOutNorm, 0, 1, 100, 0);\n' +
-            '            outVal = [sOut, sOut];\n' +
+            '        } else if (time <= k2.time) {\n' +
+            '            var tNorm = (time - k1.time) / Math.max(0.001, (k2.time - k1.time));\n' +
+            '            var s = easeOut(tNorm, 0, 1, 93, 100);\n' +
+            '            outVal = [s, s];\n' +
             '        } else {\n' +
-            '            var t = time - k2.time;\n' +
-            '            if (t < 0.55) {\n' +
-            '                var freq = 4.2;\n' +
-            '                var decay = 7.5;\n' +
-            '                var amp = 18.0;\n' +
-            '                var w = amp * Math.cos(freq * t * 2 * Math.PI) / Math.exp(decay * t);\n' +
-            '                outVal = [100 + w, 100 + w];\n' +
+            '            var hasExit = (p.numKeys >= 4);\n' +
+            '            var k3 = hasExit ? p.key(3) : null;\n' +
+            '            var k4 = hasExit ? p.key(4) : null;\n' +
+            '            if (hasExit && time >= k4.time) {\n' +
+            '                outVal = [0, 0];\n' +
+            '            } else if (hasExit && time >= k3.time) {\n' +
+            '                var tOutNorm = (time - k3.time) / Math.max(0.001, (k4.time - k3.time));\n' +
+            '                var sOut = easeIn(tOutNorm, 0, 1, 100, 0);\n' +
+            '                outVal = [sOut, sOut];\n' +
             '            } else {\n' +
             '                outVal = [100, 100];\n' +
             '            }\n' +
             '        }\n' +
+            '    } else {\n' +
+            '        var prog = p.value;\n' +
+            '        if (prog <= 0) {\n' +
+            '            outVal = [0, 0];\n' +
+            '        } else if (prog < 100) {\n' +
+            '            var sProg = easeOut(prog, 0, 100, 93, 100);\n' +
+            '            outVal = [sProg, sProg];\n' +
+            '        } else {\n' +
+            '            outVal = [100, 100];\n' +
+            '        }\n' +
             '    }\n' +
-            '} else {\n' +
-            '    var prog = p.value;\n' +
-            '    outVal = (prog <= 0) ? [0, 0] : [100, 100];\n' +
-            '}\n' +
-            'outVal;';
+            '    outVal;\n' +
+            '}';
         scaleProp.expression = scaleExpr;
     },
 
@@ -361,7 +367,7 @@ $._smartHighlighter.recipes.registerMotion("pop", {
         return (
             'var baseW = ' + ctx.box.width.toFixed(2) + ' * fontRatio;\n' +
             'var startOffset = 0;\n' +
-            'var curW = (p <= 0) ? 0 : (baseW * p + pX * 2);\n'
+            'var curW = (p <= 0) ? 0 : (baseW + pX * 2);\n'
         );
     },
 
@@ -371,6 +377,72 @@ $._smartHighlighter.recipes.registerMotion("pop", {
 });
 
 // D. SNAP JUMP MOTION STRATEGY (0-Frame Cut)
+
+// E. ELASTIC SPRING BOUNCE MOTION STRATEGY [EV-06]
+$._smartHighlighter.recipes.registerMotion("elastic", {
+    id: "elastic",
+    name: "Elastic Spring Bounce",
+    isTypewriter: false,
+
+    applyTransformScale: function (scaleProp, ctx) {
+        var scaleExpr = 
+            'var useM = 0; try { useM = effect("Use Timeline Markers")(1); } catch(eUM) {}\n' +
+            'var dIn = 0.35; try { dIn = Math.max(0.01, effect("Intro Duration (s)")(1)); } catch(eDI) {}\n' +
+            'var tIn = thisLayer.inPoint;\n' +
+            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 1) {\n' +
+            '    try { tIn = thisLayer.marker.key("IN").time; } catch(eK) { try { tIn = thisLayer.marker.key(1).time; } catch(eK2) {} }\n' +
+            '}\n' +
+            'var s = 100;\n' +
+            'if (time < tIn) {\n' +
+            '    s = 0;\n' +
+            '} else if (time < tIn + dIn) {\n' +
+            '    var tNorm = (time - tIn) / Math.max(0.001, dIn);\n' +
+            '    var decay = 5.0; var freq = 14.0;\n' +
+            '    s = 100 - (100 * Math.exp(-decay * tNorm) * Math.cos(freq * tNorm));\n' +
+            '} else {\n' +
+            '    s = 100;\n' +
+            '}\n' +
+            '[s, s];';
+        try { scaleProp.expression = scaleExpr; } catch (eSc) {}
+    },
+
+    getWidthSnippet: function (ctx) {
+        return 'var curW = fullW;\n';
+    },
+
+    getOpacityCondition: function (ctx) {
+        return '(prog <= 0) ? 0 : baseOp;';
+    }
+});
+
+// F. SNAPPY EASE-OUT MOTION STRATEGY [EV-06]
+$._smartHighlighter.recipes.registerMotion("snappy", {
+    id: "snappy",
+    name: "Snappy Ease-Out",
+    isTypewriter: false,
+
+    applyTransformScale: function (scaleProp, ctx) {
+        var scaleExpr = 
+            'var useM = 0; try { useM = effect("Use Timeline Markers")(1); } catch(eUM) {}\n' +
+            'var dIn = 0.22; try { dIn = Math.max(0.01, effect("Intro Duration (s)")(1)); } catch(eDI) {}\n' +
+            'var tIn = thisLayer.inPoint;\n' +
+            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 1) {\n' +
+            '    try { tIn = thisLayer.marker.key("IN").time; } catch(eK) { try { tIn = thisLayer.marker.key(1).time; } catch(eK2) {} }\n' +
+            '}\n' +
+            'var s = (time < tIn) ? 0 : ((time < tIn + dIn) ? easeOut(time, tIn, tIn + dIn, 0, 100) : 100);\n' +
+            '[s, s];';
+        try { scaleProp.expression = scaleExpr; } catch (eSc2) {}
+    },
+
+    getWidthSnippet: function (ctx) {
+        return 'var curW = fullW;\n';
+    },
+
+    getOpacityCondition: function (ctx) {
+        return '(prog <= 0) ? 0 : baseOp;';
+    }
+});
+
 $._smartHighlighter.recipes.registerMotion("snap", {
     isTypewriter: false,
     lineDur: 0.04,
@@ -418,9 +490,8 @@ var getStandardPositionSnippet = function (ctx) {
         '    var offY = (useM == 1 && pLayer && pLayer.effect("Master Offset Y")) ? pLayer.effect("Master Offset Y")(1) : effect("Local Offset Y")(1);\n\n' +
         '    var baseFS = ' + safeBaseFS.toFixed(2) + ';\n' +
         '    var curFS = baseFS;\n' +
-        '    var r = pLayer.sourceRectAtTime(0, false);\n' +
-        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime(time, false); }\n' +
-        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime((pLayer.inPoint + pLayer.outPoint) * 0.5, false); }\n' +
+        '    var r = { left: ' + safeBaseLeft.toFixed(2) + ', top: ' + safeBaseTop.toFixed(2) + ', width: ' + safeBaseTotalW.toFixed(2) + ', height: ' + safeBaseTotalH.toFixed(2) + ' };\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { try { r = pLayer.sourceRectAtTime(0, false); } catch(eSrat) {} }\n' +
         '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (Math.max(1, r.height) / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
         '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n';
 
@@ -440,6 +511,12 @@ var getStandardPositionSnippet = function (ctx) {
         '            isOutro = true;\n' +
         '        } else if (pProg && pProg.numKeys >= 4 && time >= pProg.key(3).time) {\n' +
         '            isOutro = true;\n' +
+        '        }\n' +
+        '        if (!isOutro && thisLayer.marker && thisLayer.marker.numKeys >= 2) {\n' +
+        '            try {\n' +
+        '                var mOutTime = thisLayer.marker.key("OUT").time;\n' +
+        '                if (time >= mOutTime) isOutro = true;\n' +
+        '            } catch(eMO2) {}\n' +
         '        }\n' +
         '        if (!isOutro && pLayer && pLayer.marker && pLayer.marker.numKeys > 0) {\n' +
         '            for (var mi = 1; mi <= pLayer.marker.numKeys; mi++) {\n' +
@@ -576,11 +653,10 @@ var getStandardSizeSnippet = function (ctx) {
         '    var useM = 0; try { useM = effect("Use Master Controls")(1); } catch(eM) {}\n' +
         '    var pX = (useM == 1 && pLayer && pLayer.effect("Master Padding X")) ? pLayer.effect("Master Padding X")(1) : effect("Local Padding X")(1);\n' +
         '    var pY = (useM == 1 && pLayer && pLayer.effect("Master Padding Y")) ? pLayer.effect("Master Padding Y")(1) : effect("Local Padding Y")(1);\n\n' +
-        '    var r = pLayer.sourceRectAtTime(0, false);\n' +
-        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime(time, false); }\n' +
-        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime((pLayer.inPoint + pLayer.outPoint) * 0.5, false); }\n' +
         '    var baseFS = ' + safeBaseFS.toFixed(2) + ';\n' +
         '    var curFS = baseFS;\n' +
+        '    var r = { left: ' + safeBaseLeft.toFixed(2) + ', top: ' + safeBaseTop.toFixed(2) + ', width: ' + safeBaseTotalW.toFixed(2) + ', height: ' + safeBaseTotalH.toFixed(2) + ' };\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { try { r = pLayer.sourceRectAtTime(0, false); } catch(eSrat) {} }\n' +
         '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (Math.max(1, r.height) / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
         '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n\n' +
         '    var p = 1; try { p = clamp(effect("Progress")(1) / 100, 0, 1); } catch(eP) {}\n' +

@@ -509,6 +509,8 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
             }
 
             var cOffsets = [];
+            var wordStarts = [];
+            var wordEnds = [];
             if (wordSpans.length === 0) {
                 for (var ci = 1; ci <= lText.length; ci++) {
                     cOffsets.push(finalW);
@@ -518,37 +520,60 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
                 var prevWordEndW = 0;
                 var wordEndWidths = [];
 
-                // قياس أطراف الكلمات المتراكمة داخل السطر ككتل لغوية مكتملة
+                // قياس أطراف الكلمات المتراكمة داخل السطر ككتل لغوية مكتملة (بحساب O(1) فائق السرعة لبدايات الكلمات)
+                var spaceUnitW = fontSpaceW;
+                if (isBoxText && typeof justifiedLayoutW === "number" && rawUnconstrainedW > 0) {
+                    var totalLineSpaces = (lText.match(/\s+/g) || []).length;
+                    if (totalLineSpaces > 0 && finalW > rawUnconstrainedW) {
+                        spaceUnitW += (finalW - rawUnconstrainedW) / totalLineSpaces;
+                    }
+                }
+
                 for (var wi = 0; wi < wordSpans.length; wi++) {
+                    var curWordStartW = 0;
+                    if (wi === 0) {
+                        curWordStartW = 0;
+                    } else {
+                        var numSpacesBefore = Math.max(1, wordSpans[wi].start - wordSpans[wi - 1].end);
+                        curWordStartW = prevWordEndW + (numSpacesBefore * spaceUnitW);
+                    }
+                    wordStarts.push(Math.round(curWordStartW * 10) / 10);
+
                     if (wi === wordSpans.length - 1) {
                         wordEndWidths.push(finalW);
                     } else {
                         var prefixStr = lText.substring(0, wordSpans[wi].end);
                         var curWordW = measureSubStringWidth(prefixStr, startsWithNumRTL);
-                        curWordW = Math.max(prevWordEndW + fontSpaceW, Math.min(finalW, curWordW));
+                        curWordW = Math.max(curWordStartW + 1, Math.min(finalW, curWordW));
                         wordEndWidths.push(Math.round(curWordW * 10) / 10);
                         prevWordEndW = curWordW;
                     }
                 }
+                wordEnds = wordEndWidths;
 
-                // توزيع الحروف بنعومة عبر نطاق كل كلمة مشكلة بـ OpenType
+                // توزيع الحروف بنعومة عبر نطاق كل كلمة مشكلة بـ OpenType مع حفظ الفراغات الفاصلة
                 var curWordIdx = 0;
-                var prevSpanEndW = 0;
                 for (var c = 1; c <= lText.length; c++) {
                     var curCharIdx = c - 1;
                     if (curWordIdx < wordSpans.length) {
                         var sp = wordSpans[curWordIdx];
+                        var wStart = wordStarts[curWordIdx];
+                        var wEnd = wordEndWidths[curWordIdx];
                         if (curCharIdx < sp.start) {
-                            cOffsets.push(prevSpanEndW);
+                            var prevW = (curWordIdx > 0) ? wordEndWidths[curWordIdx - 1] : 0;
+                            var prevEndIdx = (curWordIdx > 0) ? wordSpans[curWordIdx - 1].end : 0;
+                            var spaceGapLen = Math.max(1, sp.start - prevEndIdx);
+                            var spaceCharPos = curCharIdx - prevEndIdx + 1;
+                            var sFrac = spaceCharPos / spaceGapLen;
+                            var interpSpaceW = prevW + (wStart - prevW) * sFrac;
+                            cOffsets.push(Math.round(interpSpaceW * 10) / 10);
                         } else if (curCharIdx < sp.end) {
-                            var targetW = wordEndWidths[curWordIdx];
                             var spanLen = sp.end - sp.start;
                             var charInSpan = curCharIdx - sp.start + 1;
                             var frac = (spanLen > 0) ? (charInSpan / spanLen) : 1;
-                            var interpW = prevSpanEndW + (targetW - prevSpanEndW) * frac;
+                            var interpW = wStart + (wEnd - wStart) * frac;
                             cOffsets.push(Math.round(interpW * 10) / 10);
                             if (curCharIdx === sp.end - 1) {
-                                prevSpanEndW = targetW;
                                 curWordIdx++;
                             }
                         }
@@ -624,7 +649,10 @@ $._smartHighlighter.scanParagraph = function (textLayer, comp, optText) {
                 leftOffset: lineLeftOffset,
                 centerOffset: lineCenterOffset,
                 cOffsets: cOffsets,
-                wOffsets: wOffsets
+                wOffsets: wOffsets,
+                wordStarts: wordStarts,
+                wordEnds: wordEnds,
+                wordSpans: wordSpans
             });
         }
 

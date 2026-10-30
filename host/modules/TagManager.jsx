@@ -453,7 +453,7 @@ $._smartHighlighter.scanTargetBoxes = function (textLayer, comp, data) {
             $._smartHighlighter.log("scanTargetBoxes words error: " + eW.toString());
         } finally {
             if (tempWord) {
-                try { tempWord.remove(); } catch (eR) {}
+                try { tempWord.remove(); } catch (eR) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TagManager.jsx:456", eR); }
                 tempWord = null;
             }
             for (var cl = comp.numLayers; cl >= 1; cl--) {
@@ -598,7 +598,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                 var twAnimators = tempWord.property("ADBE Text Properties").property("ADBE Text Animators");
                 if (twAnimators && twAnimators.numProperties > 0) {
                     for (var tai = twAnimators.numProperties; tai >= 1; tai--) {
-                        try { twAnimators.property(tai).remove(); } catch (eRmTa) {}
+                        try { twAnimators.property(tai).remove(); } catch (eRmTa) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TagManager.jsx:601", eRmTa); }
                     }
                 }
             } catch (eTwAnim) {}
@@ -750,7 +750,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                                     if (wOffset + finalW > lineObj.width + 1) {
                                         wOffset = Math.max(0, Math.round((lineObj.width - finalW) * 10) / 10);
                                     }
-                                    finalH = Math.max(rWord.height, lineObj.height * 0.9);
+                                    finalH = Math.max(rWord.height, wordHasArabic ? (lineObj.height * 0.98) : (lineObj.height * 0.92));
 
                                     var prevWordOffW = 0;
                                     var fontSpaceW = scan.fontSpaceW || 5;
@@ -777,7 +777,8 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
 
                                 // Reading direction rtl_line already resolved above
                                 var wordHasArabic = $._smartHighlighter.hasArabic(subPhrase);
-                                var box_rtl = (data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (wordHasArabic ? true : (/[A-Za-z]/.test(subPhrase) ? false : rtl_line)));
+                                var isPureNumericOrLatin = /^[0-9\s.,:;!?\-\(\)\[\]+%$]+$/.test(subPhrase) || /^[A-Za-z0-9\s.,:;!?\-\(\)\[\]+%$]+$/.test(subPhrase);
+                                var box_rtl = (data.direction === "rtl") ? true : ((data.direction === "ltr") ? false : (wordHasArabic ? true : (isPureNumericOrLatin ? false : rtl_line)));
 
                                 var phrSlotIdx = (typeof lineObj.slotIndex === "number") ? lineObj.slotIndex : lIdx;
                                 var phrTotalSlots = (typeof scan.totalSlots === "number") ? scan.totalSlots : scan.numLines;
@@ -832,7 +833,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             $._smartHighlighter.log("buildPhraseHighlights scan error: " + eScanPhr.toString());
         } finally {
             if (tempWord) {
-                try { tempWord.remove(); } catch (eR) {}
+                try { tempWord.remove(); } catch (eR) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TagManager.jsx:836", eR); }
                 tempWord = null;
             }
             for (var cl = comp.numLayers; cl >= 1; cl--) {
@@ -869,7 +870,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             var isPhrase = (cmt.indexOf(phraseTag) !== -1) || (lyr.name && lyr.name.indexOf("[HL-Phrase]") !== -1);
             if (isParent && isPhrase) {
                 if (data.replaceAll === true) {
-                    try { lyr.remove(); } catch (eDelAll) {}
+                    try { lyr.remove(); } catch (eDelAll) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TagManager.jsx:873", eDelAll); }
                 } else {
                     var csM = cmt.match(/cs:(\d+)/);
                     var ceM = cmt.match(/ce:(\d+)/);
@@ -885,7 +886,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                         }
                     }
                     if (shouldReplace) {
-                        try { lyr.remove(); } catch (eDelOverlap) {}
+                        try { lyr.remove(); } catch (eDelOverlap) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TagManager.jsx:889", eDelOverlap); }
                     }
                 }
             }
@@ -920,6 +921,7 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
 
         // Find the last layer belonging to textLayer so new phrase layers stack neatly in order
         var lastLayer = textLayer;
+        var consolidatedPhraseLayer = null;
         for (var li = textLayer.index + 1; li <= comp.numLayers; li++) {
             var chkChild = comp.layer(li);
             if (!chkChild) continue;
@@ -936,16 +938,56 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
             }
         }
 
+        // Group boxes by phraseId to support Master-Slave multi-line rigging
+        var phraseGroups = {};
+        for (var bg = 0; bg < totalBoxes; bg++) {
+            var bItem = boxesData[bg];
+            if (!phraseGroups[bItem.phraseId]) {
+                phraseGroups[bItem.phraseId] = [];
+            }
+            phraseGroups[bItem.phraseId].push(bItem);
+        }
+
+        for (var pKey in phraseGroups) {
+            if (!phraseGroups.hasOwnProperty(pKey)) continue;
+            var grp = phraseGroups[pKey];
+            var totalGrpChars = 0;
+            for (var gi = 0; gi < grp.length; gi++) {
+                totalGrpChars += Math.max(1, grp[gi].text.length);
+            }
+            var cumChars = 0;
+            for (var gi = 0; gi < grp.length; gi++) {
+                var gBox = grp[gi];
+                gBox.isMultiLine = (grp.length > 1);
+                gBox.phraseTotalBoxes = grp.length;
+                gBox.phraseBoxIndex = gi;
+                gBox.isMaster = (gi === 0);
+                gBox.isSlave = (gi > 0);
+                var curBoxLen = Math.max(1, gBox.text.length);
+                gBox.fracStart = cumChars / totalGrpChars;
+                cumChars += curBoxLen;
+                gBox.fracEnd = cumChars / totalGrpChars;
+                if (gi > 0) {
+                    gBox.masterBox = grp[0];
+                }
+            }
+        }
+
         for (var k = 0; k < totalBoxes; k++) {
             var box = boxesData[k];
+            var isSlave = !!box.isSlave;
+            var masterBox = box.masterBox || null;
+            var masterLayerName = masterBox ? (masterBox.assignedLayerName || masterBox.name) : "";
+
             var safePhrText = "";
             try { safePhrText = escape(box.phraseText); } catch(eEsc) { safePhrText = encodeURIComponent(box.phraseText); }
-            var phraseComment = phraseTag + "|id:" + box.phraseId + "|parent:" + textLayer.name + "|color:" + box.phraseColorHex + "|text:" + safePhrText + "|cs:" + box.charStart + "|ce:" + box.charEnd;
+            var roleTag = isSlave ? ("|role:slave|master:" + (masterLayerName ? escape(masterLayerName) : "")) : "|role:master";
+            var phraseComment = phraseTag + "|id:" + box.phraseId + "|parent:" + textLayer.name + "|color:" + box.phraseColorHex + "|text:" + safePhrText + "|cs:" + box.charStart + "|ce:" + box.charEnd + roleTag;
 
             var hasOutro = !!box.outro;
             var holdTime = (typeof box.holdTime === "number" && box.holdTime > 0) ? box.holdTime : 1.2;
             var isSequential = !!box.sequential;
-            var boxDelay = (isSequential && totalBoxes > 1) ? (k * 0.22) : 0;
+            var boxDelay = (isSequential && totalBoxes > 1 && !box.isMultiLine) ? (k * 0.22) : 0;
             var outDur = 0.26;
 
             var boxMotion = box.motion || globalMotion;
@@ -1024,97 +1066,312 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
                 bStart = typeStartTime + (pctStart / 100) * typeTotalDur;
                 bEnd = typeStartTime + (pctEnd / 100) * typeTotalDur;
             } else {
-                bStart = comp.time + boxDelay;
-                bEnd = bStart + 0.32;
+                var defaultStart = (typeof data.inPoint === "number" && data.inPoint > 0) ? data.inPoint : ((typeof comp.time === "number" && comp.time > 0) ? comp.time : textLayer.inPoint);
+                if (typeof defaultStart !== "number" || isNaN(defaultStart)) defaultStart = comp.time;
+                var defaultDur = (typeof data.lineDuration === "number" && data.lineDuration > 0) ? data.lineDuration : ((typeof data.dur === "number" && data.dur > 0) ? data.dur : 0.35);
+                bStart = defaultStart + boxDelay;
+                bEnd = bStart + defaultDur;
             }
             if (bEnd <= bStart) bEnd = bStart + 0.04;
 
-            var opacExpr = null;
-            if (boxMotion === "typewriter" && hasOutro && (!activeAnimInfo || !activeAnimInfo.hasOutro)) {
-                var tExitTime = bEnd + holdTime;
+            var tExitTime = bEnd + holdTime;
+            var inDur = (boxMotion === "snap") ? 0.04 : Math.max(0.25, Math.min(1.0, bEnd - bStart));
+            var outDur = 0.20;
+
+            var opacExpr;
+            if (isSlave) {
                 opacExpr =
-                    'var prog = 100; try { prog = effect("Progress")(1); } catch(eP) {}\n' +
-                    'var lOp = 100; try { lOp = effect("Local Opacity")(1); } catch(eL) {}\n' +
-                    'var baseOpac = (prog <= 0) ? 0 : lOp;\n' +
-                    'var tExit = ' + tExitTime.toFixed(3) + ';\n' +
-                    'var dExit = ' + outDur.toFixed(3) + ';\n' +
-                    'if (time > tExit) {\n' +
-                    '    ease(time, tExit, tExit + dExit, baseOpac, 0);\n' +
+                    'var masterName = ' + JSON.stringify(masterLayerName) + ';\n' +
+                    'var pMaster = null; try { pMaster = thisComp.layer(masterName); } catch(eM) {}\n' +
+                    'if (!pMaster) {\n' +
+                    '    value;\n' +
                     '} else {\n' +
-                    '    baseOpac;\n' +
+                    '    var opM = 100; try { opM = pMaster.transform.opacity.value; } catch(eO) {}\n' +
+                    '    var prog = 100; try { prog = effect("Progress")(1).value; } catch(eP) {}\n' +
+                    '    (prog <= 0) ? 0 : opM;\n' +
+                    '}';
+            } else {
+                opacExpr =
+                    'var useM = 1; try { useM = effect("Use Timeline Markers")(1); } catch(eUM) {}\n' +
+                    'var lOp = 100; try { lOp = effect("Local Opacity")(1); } catch(eLOp) {}\n' +
+                    'var prog = 100; try { prog = effect("Progress")(1); } catch(eP) {}\n' +
+                    'var tIn = ' + bStart.toFixed(3) + ';\n' +
+                    'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 1) {\n' +
+                    '    try { tIn = thisLayer.marker.key("IN").time; } catch(eK1) { try { tIn = thisLayer.marker.key(1).time; } catch(eK2) {} }\n' +
+                    '}\n' +
+                    'var hasOut = false;\n' +
+                    'var tOut = ' + tExitTime.toFixed(3) + ';\n' +
+                    'var dOut = ' + outDur.toFixed(3) + '; try { dOut = Math.max(0.01, effect("Outro Duration (s)")(1)); } catch(eDO) {}\n' +
+                    'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 2) {\n' +
+                    '    try { tOut = thisLayer.marker.key("OUT").time; hasOut = true; } catch(eKO) {}\n' +
+                    '} else {\n' +
+                    '    hasOut = true;\n' +
+                    '}\n' +
+                    'if (time < tIn || (hasOut && time >= tOut + dOut) || prog <= 0) {\n' +
+                    '    0;\n' +
+                    '} else if (hasOut && time >= tOut) {\n' +
+                    '    ease(time, tOut, tOut + dOut, lOp, 0);\n' +
+                    '} else {\n' +
+                    '    lOp;\n' +
                     '}';
             }
 
+            var fEndVal = (typeof box.fracEnd === "number") ? box.fracEnd : 1.0;
+            var fStartVal = (typeof box.fracStart === "number") ? box.fracStart : 0.0;
+
             var shapeOpts = {
                 comment: phraseComment,
+                singleLayer: !!data.singleLayer,
+                masterLayer: consolidatedPhraseLayer,
+                groupName: "Phrase Group " + (k + 1),
                 lastLayer: lastLayer,
                 useMasterDefault: 0,
                 defaultColor: boxColor,
                 defaultPadX: box.paddingX,
                 defaultPadY: box.paddingY,
                 defaultRound: (box.style === "pill" ? 50 : 0),
-                defaultOpacity: 100,
+                defaultOpacity: (box.style === "marker" ? 85 : 100),
                 opacityExpression: opacExpr,
                 groupName: "Phrase Group",
                 animateProgress: function (progProp, c) {
-                    if (boxMotion === "typewriter") {
-                        progProp.setValueAtTime(bStart, 0);
-                        progProp.setValueAtTime(bEnd, 100);
-                        try {
-                            progProp.setInterpolationTypeAtKey(1, KeyframeInterpolationType.LINEAR);
-                            progProp.setInterpolationTypeAtKey(2, KeyframeInterpolationType.LINEAR);
-                        } catch (eLin) {}
-                        var twRecipe = $._smartHighlighter.recipes.getMotion("typewriter");
-                        if (twRecipe && twRecipe.getProgressExpression) {
-                            progProp.expression = twRecipe.getProgressExpression(c);
-                        }
-                    } else if (boxMotion === "pop") {
-                        var t1 = comp.time + boxDelay;
-                        var t2 = t1 + 0.26;
-                        progProp.setValueAtTime(t1, 0);
-                        progProp.setValueAtTime(t2, 100);
-                        if (hasOutro) {
-                            var t3 = t2 + holdTime;
-                            var t4 = t3 + outDur;
-                            progProp.setValueAtTime(t3, 100);
-                            progProp.setValueAtTime(t4, 0);
-                        }
-                    } else if (boxMotion === "snap") {
-                        var t1 = comp.time + boxDelay;
-                        var t2 = t1 + 0.04;
-                        progProp.setValueAtTime(t1, 0);
-                        progProp.setValueAtTime(t2, 100);
-                        if (hasOutro) {
-                            var t3 = t2 + holdTime;
-                            var t4 = t3 + 0.04;
-                            progProp.setValueAtTime(t3, 100);
-                            progProp.setValueAtTime(t4, 0);
-                        }
+                    progProp.setValueAtTime(bStart, 0);
+                    progProp.setValueAtTime(bStart + inDur, 100);
+                    try {
+                        progProp.setInterpolationTypeAtKey(1, KeyframeInterpolationType.LINEAR);
+                        progProp.setInterpolationTypeAtKey(2, KeyframeInterpolationType.LINEAR);
+                    } catch (eLin) {}
+
+                    var dualEngineProgExpr;
+                    if (isSlave) {
+                        dualEngineProgExpr =
+                            'var masterName = ' + JSON.stringify(masterLayerName) + ';\n' +
+                            'var pMaster = null; try { pMaster = thisComp.layer(masterName); } catch(eM) {}\n' +
+                            'if (!pMaster) {\n' +
+                            '    value;\n' +
+                            '} else {\n' +
+                            '    var useM = 1; try { useM = pMaster.effect("Use Timeline Markers")(1); } catch(eUM) {}\n' +
+                            '    var tIn = ' + bStart.toFixed(3) + ';\n' +
+                            '    if (useM == 1 && pMaster.marker && pMaster.marker.numKeys >= 1) {\n' +
+                            '        try { tIn = pMaster.marker.key("IN").time; } catch(eK1) { try { tIn = pMaster.marker.key(1).time; } catch(eK2) {} }\n' +
+                            '    }\n' +
+                            '    var dIn = ' + inDur.toFixed(3) + '; try { dIn = Math.max(0.01, pMaster.effect("Intro Duration (s)")(1)); } catch(eDI) {}\n' +
+                            '    var fStart = ' + fStartVal.toFixed(4) + ';\n' +
+                            '    var fEnd = ' + fEndVal.toFixed(4) + ';\n' +
+                            '    var tStart = tIn + (dIn * fStart);\n' +
+                            '    var tEnd = tIn + (dIn * fEnd);\n' +
+                            '    var mType = ' + (boxMotion === "snap" ? 3 : (boxMotion === "pop" ? 2 : (boxMotion === "typewriter" ? 4 : 1))) + '; try { mType = pMaster.effect("Motion Type")(1); } catch(eMT) {}\n' +
+                            '    var res = 0;\n' +
+                            '    if (mType == 3) {\n' +
+                            '        res = (time < tStart) ? 0 : 100;\n' +
+                            '    } else {\n' +
+                            '        if (time < tStart) {\n' +
+                            '            res = 0;\n' +
+                            '        } else if (time < tEnd) {\n' +
+                            '            res = ease(time, tStart, tEnd, 0, 100);\n' +
+                            '        } else {\n' +
+                            '            res = 100;\n' +
+                            '        }\n' +
+                            '    }\n' +
+                            '    var hasOut = false;\n' +
+                            '    var tOut = ' + tExitTime.toFixed(3) + ';\n' +
+                            '    var dOut = ' + outDur.toFixed(3) + '; try { dOut = Math.max(0.01, pMaster.effect("Outro Duration (s)")(1)); } catch(eDO) {}\n' +
+                            '    if (useM == 1 && pMaster.marker && pMaster.marker.numKeys >= 2) {\n' +
+                            '        try { tOut = pMaster.marker.key("OUT").time; hasOut = true; } catch(eKO) {}\n' +
+                            '    } else {\n' +
+                            '        hasOut = true;\n' +
+                            '    }\n' +
+                            '    if (hasOut && time >= tOut) {\n' +
+                            '        var tOutStart = tOut + (dOut * (1 - fEnd));\n' +
+                            '        var tOutEnd = tOut + (dOut * (1 - fStart));\n' +
+                            '        if (mType == 3) {\n' +
+                            '            res = (time >= tOutStart) ? 0 : res;\n' +
+                            '        } else {\n' +
+                            '            var outP = ease(time, tOutStart, tOutEnd, 100, 0);\n' +
+                            '            res = Math.min(res, outP);\n' +
+                            '        }\n' +
+                            '    }\n' +
+                            '    res;\n' +
+                            '}';
+                    } else if (boxMotion === "typewriter" && activeAnimInfo && activeAnimInfo.hasAnimator) {
+                        dualEngineProgExpr =
+                            'var useM = 1; try { useM = effect("Use Timeline Markers")(1); } catch(eM) {}\n' +
+                            'var tIn = ' + bStart.toFixed(3) + ';\n' +
+                            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 1) {\n' +
+                            '    try { tIn = thisLayer.marker.key("IN").time; } catch(eK1) { try { tIn = thisLayer.marker.key(1).time; } catch(eK2) {} }\n' +
+                            '}\n' +
+                            'var hasOut = false;\n' +
+                            'var tOut = ' + tExitTime.toFixed(3) + ';\n' +
+                            'var dOut = ' + outDur.toFixed(3) + '; try { dOut = Math.max(0.01, effect("Outro Duration (s)")(1)); } catch(eDO) {}\n' +
+                            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 2) {\n' +
+                            '    try { tOut = thisLayer.marker.key("OUT").time; hasOut = true; } catch(eMO) {}\n' +
+                            '} else {\n' +
+                            '    hasOut = true;\n' +
+                            '}\n' +
+                            'var res = value;\n' +
+                            'var pLayer = hasParent ? parent : null;\n' +
+                            'if (pLayer) {\n' +
+                            '    var anim = null;\n' +
+                            '    try { anim = pLayer.text.animator("Typewriter Sync"); } catch(e) {}\n' +
+                            '    if (!anim) { try { anim = pLayer.text.animator("Typewriter"); } catch(e2) {} }\n' +
+                            '    if (anim && anim.numProperties >= 1) {\n' +
+                            '        try {\n' +
+                            '            var lineNum = ' + lineNum + ';\n' +
+                            '            var sel = null;\n' +
+                            '            try { sel = anim.selector("Range Selector Line " + lineNum); } catch(eSL) {}\n' +
+                            '            if (!sel) { try { sel = anim.selector("Range Selector Intro"); } catch(eSI) {} }\n' +
+                            '            if (!sel) { try { sel = anim.selector(1); } catch(eS1) {} }\n' +
+                            '            if (sel) {\n' +
+                            '                var unitType = 1;\n' +
+                            '                try {\n' +
+                            '                    if (sel.advanced && sel.advanced.basedOn) unitType = sel.advanced.basedOn.value;\n' +
+                            '                } catch(eUT) {}\n' +
+                            '                var c1 = (unitType == 3) ? ' + wStartPct.toFixed(4) + ' : ((unitType == 4) ? ' + lStartPct.toFixed(4) + ' : ' + cStartPct.toFixed(4) + ');\n' +
+                            '                var c2 = (unitType == 3) ? ' + wEndPct.toFixed(4) + ' : ((unitType == 4) ? ' + lEndPct.toFixed(4) + ' : ' + cEndPct.toFixed(4) + ');\n' +
+                            '                var pVal = 0;\n' +
+                            '                var pStart = null; try { pStart = sel.start; } catch(e1) {}\n' +
+                            '                var pEnd = null; try { pEnd = sel.end; } catch(e2) {}\n' +
+                            '                if (pStart && (pStart.numKeys > 0 || pStart.expressionEnabled)) { pVal = pStart.value; }\n' +
+                            '                else if (pEnd && (pEnd.numKeys > 0 || pEnd.expressionEnabled)) { pVal = pEnd.value; }\n' +
+                            '                else if (pStart) { pVal = pStart.value; }\n' +
+                            '                else if (pEnd) { pVal = pEnd.value; }\n' +
+                            '                if (time >= tIn && pVal < c2) {\n' +
+                            '                    res = (pVal <= c1) ? 0 : linear(pVal, c1, c2, 0, 100);\n' +
+                            '                } else {\n' +
+                            '                    var dIn = ' + inDur.toFixed(3) + '; try { dIn = Math.max(0.01, effect("Intro Duration (s)")(1)); } catch(eD) {}\n' +
+                            '                    var dInLocal = Math.max(0.01, dIn * ' + fEndVal.toFixed(4) + ');\n' +
+                            '                    res = (time < tIn) ? 0 : (time < tIn + dInLocal ? ease(time, tIn, tIn + dInLocal, 0, 100) : 100);\n' +
+                            '                }\n' +
+                            '            }\n' +
+                            '        } catch(err) {}\n' +
+                            '    } else {\n' +
+                            '        var dIn = ' + inDur.toFixed(3) + '; try { dIn = Math.max(0.01, effect("Intro Duration (s)")(1)); } catch(eD) {}\n' +
+                            '        var dInLocal = Math.max(0.01, dIn * ' + fEndVal.toFixed(4) + ');\n' +
+                            '        res = (time < tIn) ? 0 : (time < tIn + dInLocal ? ease(time, tIn, tIn + dInLocal, 0, 100) : 100);\n' +
+                            '    }\n' +
+                            '}\n' +
+                            'if (time < tIn) res = 0;\n' +
+                            'if (hasOut && time >= tOut) {\n' +
+                            '    var tOutLocal = tOut + (dOut * (1 - ' + fEndVal.toFixed(4) + '));\n' +
+                            '    var dOutLocal = Math.max(0.01, dOut * ' + fEndVal.toFixed(4) + ');\n' +
+                            '    var outP = ease(time, tOutLocal, tOutLocal + dOutLocal, 100, 0);\n' +
+                            '    res = Math.min(res, outP);\n' +
+                            '}\n' +
+                            'res;';
                     } else {
-                        var t1 = comp.time + boxDelay;
-                        var t2 = t1 + 0.32;
-                        progProp.setValueAtTime(t1, 0);
-                        progProp.setValueAtTime(t2, 100);
-                        var easePunch = new KeyframeEase(0, 25);
-                        var easeDecel = new KeyframeEase(0, 80);
-                        progProp.setTemporalEaseAtKey(1, [easePunch], [easePunch]);
-                        progProp.setTemporalEaseAtKey(2, [easeDecel], [easeDecel]);
-                        if (hasOutro) {
-                            var t3 = t2 + holdTime;
-                            var t4 = t3 + 0.28;
-                            progProp.setValueAtTime(t3, 100);
-                            progProp.setValueAtTime(t4, 0);
-                            var easeOutIn = new KeyframeEase(0, 30);
-                            var easeOutEnd = new KeyframeEase(0, 75);
-                            progProp.setTemporalEaseAtKey(3, [easeOutIn], [easeOutIn]);
-                            progProp.setTemporalEaseAtKey(4, [easeOutEnd], [easeOutEnd]);
-                        }
+                        dualEngineProgExpr =
+                            'var useM = 1; try { useM = effect("Use Timeline Markers")(1); } catch(eM) {}\n' +
+                            'var dIn = ' + inDur.toFixed(3) + '; try { dIn = Math.max(0.01, effect("Intro Duration (s)")(1)); } catch(eD) {}\n' +
+                            'var dInLocal = Math.max(0.01, dIn * ' + fEndVal.toFixed(4) + ');\n' +
+                            'var tIn = ' + bStart.toFixed(3) + ';\n' +
+                            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 1) {\n' +
+                            '    try { tIn = thisLayer.marker.key("IN").time; } catch(eK1) { try { tIn = thisLayer.marker.key(1).time; } catch(eK2) {} }\n' +
+                            '}\n' +
+                            'var mType = ' + (boxMotion === "snap" ? 3 : (boxMotion === "pop" ? 2 : 1)) + '; try { mType = effect("Motion Type")(1); } catch(eMT) {}\n' +
+                            'var res = 0;\n' +
+                            'if (mType == 3) {\n' +
+                            '    res = (time < tIn) ? 0 : 100;\n' +
+                            '} else {\n' +
+                            '    if (time < tIn) {\n' +
+                            '        res = 0;\n' +
+                            '    } else if (time < tIn + dInLocal) {\n' +
+                            '        res = ease(time, tIn, tIn + dInLocal, 0, 100);\n' +
+                            '    } else {\n' +
+                            '        res = 100;\n' +
+                            '    }\n' +
+                            '}\n' +
+                            'var hasOut = false;\n' +
+                            'var tOut = ' + tExitTime.toFixed(3) + ';\n' +
+                            'var dOut = ' + outDur.toFixed(3) + '; try { dOut = Math.max(0.01, effect("Outro Duration (s)")(1)); } catch(eDO) {}\n' +
+                            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 2) {\n' +
+                            '    try { tOut = thisLayer.marker.key("OUT").time; hasOut = true; } catch(eMO) {}\n' +
+                            '} else {\n' +
+                            '    hasOut = true;\n' +
+                            '}\n' +
+                            'if (hasOut && time >= tOut) {\n' +
+                            '    var tOutLocal = tOut + (dOut * (1 - ' + fEndVal.toFixed(4) + '));\n' +
+                            '    var dOutLocal = Math.max(0.01, dOut * ' + fEndVal.toFixed(4) + ');\n' +
+                            '    if (mType == 3) {\n' +
+                            '        res = (time >= tOutLocal) ? 0 : res;\n' +
+                            '    } else {\n' +
+                            '        var outP = ease(time, tOutLocal, tOutLocal + dOutLocal, 100, 0);\n' +
+                            '        res = Math.min(res, outP);\n' +
+                            '    }\n' +
+                            '}\n' +
+                            'res;';
                     }
+                    progProp.expression = dualEngineProgExpr;
                 }
             };
 
+            // Custom layer name for multi-line boxes
+            if (isSlave) {
+                box.name = '[HL-Phrase] "' + (box.text.length > 14 ? box.text.substring(0, 12) + '...' : box.text) + '" (Line ' + (box.phraseBoxIndex + 1) + ')';
+            }
+
             var shapeLayer = $._smartHighlighter.createHighlightShapeLayer(comp, textLayer, box, ctx, shapeOpts);
+            if (shapeLayer) {
+                box.assignedLayerName = shapeLayer.name;
+                try {
+                    var fx = shapeLayer.property("ADBE Effect Parade");
+                    if (fx && !isSlave) {
+                        var chkMarkers = fx.addProperty("ADBE Checkbox Control");
+                        chkMarkers.name = "Use Timeline Markers";
+                        chkMarkers.property(1).setValue(1);
+
+                        var slInDur = fx.addProperty("ADBE Slider Control");
+                        slInDur.name = "Intro Duration (s)";
+                        slInDur.property(1).setValue(inDur);
+
+                        var slOutDur = fx.addProperty("ADBE Slider Control");
+                        slOutDur.name = "Outro Duration (s)";
+                        slOutDur.property(1).setValue(outDur);
+
+                        var slMotion = fx.addProperty("ADBE Slider Control");
+                        slMotion.name = "Motion Type";
+                        var mVal = (boxMotion === "snap") ? 3 : (boxMotion === "pop" ? 2 : (boxMotion === "typewriter" ? 4 : 1));
+                        slMotion.property(1).setValue(mVal);
+                    }
+
+                    // Only master layer gets timeline markers (prevents duplicated markers)
+                    if (!isSlave) {
+                        var mProp = shapeLayer.property("ADBE Marker");
+                        if (mProp) {
+                            while (mProp.numKeys > 0) mProp.removeKey(1);
+                            var mIn = new MarkerValue("IN");
+                            try { mIn.label = 8; } catch (eL1) {} // Green label #8
+                            mProp.setValueAtTime(bStart, mIn);
+
+                            var mOut = new MarkerValue("OUT");
+                            try { mOut.label = 1; } catch (eL2) {} // Orange label #1
+                            mProp.setValueAtTime(tExitTime, mOut);
+                        }
+                    }
+
+                    // Color linking expression for slave box
+                    if (isSlave && masterLayerName) {
+                        try {
+                            var rootGrp = shapeLayer.property("ADBE Root Vectors Group");
+                            if (rootGrp && rootGrp.property(1)) {
+                                var fillProp = rootGrp.property(1).property("ADBE Vectors Group").property("Fill Color");
+                                if (fillProp && fillProp.property("ADBE Vector Fill Color")) {
+                                    fillProp.property("ADBE Vector Fill Color").expression =
+                                        'var pMaster = null; try { pMaster = thisComp.layer(' + JSON.stringify(masterLayerName) + '); } catch(eM) {}\n' +
+                                        'if (pMaster && pMaster.effect("Local Color")) { pMaster.effect("Local Color")(1).value; } else { effect("Local Color")(1).value; }';
+                                }
+                            }
+                        } catch (eLinkCol) {}
+                    }
+
+                    try {
+                        shapeLayer.inPoint = Math.max(0, bStart - 0.5);
+                        shapeLayer.outPoint = Math.min(comp.duration, tExitTime + outDur + 0.5);
+                    } catch (eTrim) {}
+                } catch (eDualFx) {
+                    $._smartHighlighter.log("Dual-Engine setup warning: " + eDualFx.toString());
+                }
+            }
             ctx.shapeLayer = shapeLayer;
+            if (!consolidatedPhraseLayer && data.singleLayer) consolidatedPhraseLayer = shapeLayer;
             lastLayer = shapeLayer;
         }
 
@@ -1260,7 +1517,7 @@ $._smartHighlighter.getAppliedPhrases = function (targetLayerName) {
         var textLayerIndex = textLayer.index;
         var textLayerName = textLayer.name;
         var rawTextContent = "";
-        try { rawTextContent = textLayer.property("Source Text").value.text; } catch (eSrc) {}
+        try { rawTextContent = textLayer.property("Source Text").value.text; } catch (eSrc) { if ($._smartHighlighter && $._smartHighlighter.logError) $._smartHighlighter.logError("TagManager.jsx:1515", eSrc); }
 
         var phrasesMap = {};
         var phrasesList = [];
@@ -1403,6 +1660,211 @@ $._smartHighlighter.removeSinglePhrase = function (phraseId) {
         return msg;
     } catch (e) {
         return "ERROR: " + e.toString();
+    } finally {
+        $._smartHighlighter.safeEndUndoGroup();
+    }
+};
+
+/**
+ * تعديل لون عبارة مظللة حياً في After Effects دون إعادة إنشاء الطبقة أو المساس بالماركرز
+ */
+$._smartHighlighter.setPhraseColor = function (phraseId, newHexColor) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "ERROR: Please select an active composition";
+        if (!phraseId || !newHexColor) return "ERROR: Missing phraseId or color";
+
+        var rgb = $._smartHighlighter.hexToRgba ? $._smartHighlighter.hexToRgba(newHexColor) : [0.18, 0.8, 0.44, 1.0];
+        app.beginUndoGroup("OpenBox: Change Phrase Color");
+        var updated = 0;
+        var phraseTag = "SMART_HL_PHRASE";
+
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var l = comp.layer(i);
+            if (!l) continue;
+            var c = l.comment || "";
+            var isPhrase = (c.indexOf(phraseTag) !== -1) || (l.name && l.name.indexOf("[HL-Phrase]") !== -1);
+            if (isPhrase && (c.indexOf("id:" + phraseId) !== -1 || phraseId === ("phrase_layer_" + l.index) || l.name.indexOf(phraseId) !== -1)) {
+                try {
+                    var colFx = l.effect("Local Color");
+                    if (colFx && colFx.property(1)) {
+                        colFx.property(1).setValue(rgb);
+                    }
+                    if (c.indexOf("color:") !== -1) {
+                        l.comment = c.replace(/color:[^\|]+/, "color:" + newHexColor);
+                    }
+                    updated++;
+                } catch (eUp) {}
+            }
+        }
+        var msg = "SUCCESS: Updated color for phrase (" + updated + " layer(s))";
+        $._smartHighlighter.log(msg);
+        return msg;
+    } catch (e) {
+        return "ERROR: " + e.toString();
+    } finally {
+        $._smartHighlighter.safeEndUndoGroup();
+    }
+};
+
+/**
+ * تحديد موقع العبارة ونقل مؤشر تشغيل التايملاين مباشرة إلى زمن ماركر IN
+ */
+$._smartHighlighter.locatePhrase = function (phraseId) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "ERROR: Please select an active composition";
+        if (!phraseId) return "ERROR: Missing phraseId";
+
+        var phraseTag = "SMART_HL_PHRASE";
+        var targetLayer = null;
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var l = comp.layer(i);
+            if (!l) continue;
+            var c = l.comment || "";
+            var isPhrase = (c.indexOf(phraseTag) !== -1) || (l.name && l.name.indexOf("[HL-Phrase]") !== -1);
+            if (isPhrase && (c.indexOf("id:" + phraseId) !== -1 || phraseId === ("phrase_layer_" + l.index) || l.name.indexOf(phraseId) !== -1)) {
+                if (c.indexOf("role:master") !== -1 || !targetLayer) {
+                    targetLayer = l;
+                }
+            }
+        }
+
+        if (!targetLayer) return "ERROR: Phrase layer not found in AE";
+
+        var tSeek = targetLayer.inPoint;
+        try {
+            var mProp = targetLayer.property("ADBE Marker");
+            if (mProp && mProp.numKeys >= 1) {
+                try { tSeek = mProp.key("IN").time; } catch (eK) { tSeek = mProp.keyTime(1); }
+            }
+        } catch (eM) {}
+
+        comp.time = Math.max(0, Math.min(comp.duration, tSeek));
+
+        for (var si = 0; si < comp.selectedLayers.length; si++) {
+            try { comp.selectedLayers[si].selected = false; } catch (eDes) {}
+        }
+        targetLayer.selected = true;
+
+        return "SUCCESS: Jumped to phrase at " + tSeek.toFixed(2) + "s";
+    } catch (e) {
+        return "ERROR: " + e.toString();
+    }
+};
+
+/**
+ * إعادة مزامنة وتصويب إحداثيات وأبعاد الصناديق بدقة O(1) عند تعديل النص في After Effects
+ * مع الحفاظ بنسبة 100% على توقيت الماركرز اليدوية والسلايدرات
+ */
+$._smartHighlighter.resyncPhraseHighlights = function () {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "ERROR: Please select an active composition";
+        var layers = comp.selectedLayers;
+        var textLayer = null;
+        if (layers && layers.length > 0) {
+            for (var si = 0; si < layers.length; si++) {
+                if (layers[si] instanceof TextLayer) { textLayer = layers[si]; break; }
+                if (layers[si].parent && (layers[si].parent instanceof TextLayer)) { textLayer = layers[si].parent; break; }
+            }
+        }
+        if (!textLayer) {
+            for (var ci = 1; ci <= comp.numLayers; ci++) {
+                if (comp.layer(ci) instanceof TextLayer) { textLayer = comp.layer(ci); break; }
+            }
+        }
+        if (!textLayer) return "ERROR: Please select a Text Layer to re-sync";
+
+        app.beginUndoGroup("OpenBox: Re-Sync Phrases");
+
+        if ($._smartHighlighter.clearScanCache) {
+            $._smartHighlighter.clearScanCache(textLayer);
+        }
+        var scan = $._smartHighlighter.scanParagraph(textLayer);
+        if (!scan || !scan.fullText) {
+            return "ERROR: Failed to scan updated text layer";
+        }
+
+        var phraseTag = "SMART_HL_PHRASE";
+        var resyncedCount = 0;
+
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var l = comp.layer(i);
+            if (!l) continue;
+            var c = l.comment || "";
+            var isPhrase = (c.indexOf(phraseTag) !== -1) || (l.name && l.name.indexOf("[HL-Phrase]") !== -1);
+            var isChild = (l.parent === textLayer || (l.parent && l.parent.name === textLayer.name) || c.indexOf("parent:" + textLayer.name) !== -1);
+            if (isPhrase && isChild) {
+                var csMatch = c.match(/cs:(\d+)/);
+                var ceMatch = c.match(/ce:(\d+)/);
+                if (csMatch && ceMatch) {
+                    var cs = parseInt(csMatch[1], 10);
+                    var ce = parseInt(ceMatch[1], 10);
+                    for (var li = 0; li < scan.numLines; li++) {
+                        var lObj = scan.linesData[li];
+                        var lStart = lObj.charStart || 0;
+                        var lEnd = lStart + lObj.text.length;
+                        if (cs >= lStart && cs < lEnd) {
+                            var localStart = cs - lStart;
+                            var localEnd = Math.min(ce - lStart, lObj.text.length);
+                            var phrStarts = lObj.wordStarts || [];
+                            var phrEnds = lObj.wordEnds || [];
+                            var phrSpans = lObj.wordSpans || [];
+                            var wOff = 0;
+                            var newW = 10;
+                            var fWIdx = -1, lWIdx = -1;
+                            for (var wi = 0; wi < phrSpans.length; wi++) {
+                                if (fWIdx === -1 && phrSpans[wi].end > localStart) fWIdx = wi;
+                                if (phrSpans[wi].start < localEnd) lWIdx = wi;
+                            }
+                            if (fWIdx !== -1 && lWIdx >= fWIdx && phrStarts.length > fWIdx && phrEnds.length > lWIdx) {
+                                wOff = Math.max(0, Math.round(phrStarts[fWIdx] * 10) / 10);
+                                newW = Math.max(1, Math.round((phrEnds[lWIdx] - phrStarts[fWIdx]) * 10) / 10);
+                            } else if (lObj.cOffsets && localEnd <= lObj.cOffsets.length) {
+                                var sStart = (localStart > 0) ? lObj.cOffsets[localStart - 1] : 0;
+                                var sEnd = lObj.cOffsets[localEnd - 1];
+                                wOff = Math.max(0, Math.round(sStart * 10) / 10);
+                                newW = Math.max(1, Math.round((sEnd - sStart) * 10) / 10);
+                            }
+                            try {
+                                var rootGrp = l.property("ADBE Root Vectors Group");
+                                if (rootGrp) {
+                                    for (var gi = 1; gi <= rootGrp.numProperties; gi++) {
+                                        var grp = rootGrp.property(gi);
+                                        if (grp && grp.property("ADBE Vectors Group")) {
+                                            var rectProp = grp.property("ADBE Vectors Group").property("ADBE Vector Shape - Rect");
+                                            if (rectProp) {
+                                                var posExpr = rectProp.property("ADBE Vector Rect Position").expression;
+                                                if (posExpr) {
+                                                    posExpr = posExpr.replace(/var dynH = [\d.]+/g, "var dynH = " + lObj.height.toFixed(2));
+                                                    posExpr = posExpr.replace(/rightEdge - \([\d.]+/g, "rightEdge - (" + wOff.toFixed(2));
+                                                    posExpr = posExpr.replace(/leftEdge \+ \([\d.]+/g, "leftEdge + (" + wOff.toFixed(2));
+                                                    posExpr = posExpr.replace(/var baseW = [\d.]+/g, "var baseW = " + newW.toFixed(2));
+                                                    rectProp.property("ADBE Vector Rect Position").expression = posExpr;
+                                                }
+                                                var szExpr = rectProp.property("ADBE Vector Rect Size").expression;
+                                                if (szExpr) {
+                                                    szExpr = szExpr.replace(/var baseW = [\d.]+/g, "var baseW = " + newW.toFixed(2));
+                                                    rectProp.property("ADBE Vector Rect Size").expression = szExpr;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                resyncedCount++;
+                            } catch (eUpExpr) {}
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        var resMsg = "SUCCESS: Re-synced " + resyncedCount + " phrase highlight(s)";
+        $._smartHighlighter.log(resMsg);
+        return resMsg;
+    } catch (eResync) {
+        return "ERROR: " + eResync.toString();
     } finally {
         $._smartHighlighter.safeEndUndoGroup();
     }

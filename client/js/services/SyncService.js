@@ -174,13 +174,27 @@
                 if (!document.hidden) HS.Sync.fromAE(true);
             });
 
-            // 3. Gentle background interval: ONLY poll when panel has active focus
+            // 3. [AP-07 & EV-03 REMEDIATION] Adaptive Event-Driven Refresh
+            if (window.__adobe_cep__) {
+                try {
+                    var cs = new CSInterface();
+                    cs.addEventListener("com.adobe.aftereffects.projectChanged", function () {
+                        HS.Sync.fromAE();
+                    });
+                    cs.addEventListener("documentAfterActivate", function () {
+                        HS.Sync.fromAE(true);
+                    });
+                } catch (eCepEvt) {}
+            }
+
+            // Low-frequency safety fallback (10s instead of 3s, only when actively interacting)
             setInterval(function () {
                 var isPanelActive = (typeof document.hasFocus === "function") ? document.hasFocus() : true;
-                if (isPanelActive && !document.hidden && Date.now() - HS.State.lastUserInteraction > 2500) {
+                var isInteracting = (Date.now() - HS.State.lastUserInteraction < 8000);
+                if (isPanelActive && !document.hidden && isInteracting) {
                     HS.Sync.fromAE();
                 }
-            }, 3000);
+            }, 10000);
 
             // Initial sync on startup
             HS.Sync.fromAE();

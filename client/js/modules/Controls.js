@@ -649,7 +649,7 @@
         },
 
         syncPhraseMotionButtons: function () {
-            var cur = (HS.DOM && HS.DOM.phraseMotionSelect) ? HS.DOM.phraseMotionSelect.value : "typewriter";
+            var cur = (HS.DOM && HS.DOM.phraseMotionSelect) ? (HS.DOM.phraseMotionSelect.value || "wipe") : "wipe";
             document.querySelectorAll(".phrase-motion-btn").forEach(function (b) {
                 b.classList.toggle("active", b.dataset.motion === cur);
             });

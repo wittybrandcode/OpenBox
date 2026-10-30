@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX â€” Integration Test Suite
  * Test: Expression Evaluation & Math Safety
  * 
@@ -272,6 +272,170 @@ function runTest() {
     assert.strictEqual(calcLinePitch(30, 50, 4), 0, "linePitch clamps to 0 when r.height < dynH");
     assert.strictEqual(calcLinePitch(200, 40, 5), 40, "linePitch computes correctly for normal height");
     console.log('  âœ“ Negative Pitch Clamp: Math.max(0, ...) protects against line inversion if r.height < dynH');
+
+    // 8. Dual-Engine Phrase Progress Expression (Marker Snapping, Dragging & Safe Fallback)
+    function evalDualEngineProg(hasMarkers, markerInTime, markerOutTime, durIn, time) {
+        var thisLayer = {
+            inPoint: 0.0,
+            marker: hasMarkers ? {
+                numKeys: (markerOutTime !== undefined ? 2 : 1),
+                key: function (ident) {
+                    if (ident === "IN" || ident === 1) return { time: markerInTime };
+                    if (ident === "OUT" || ident === 2) return { time: markerOutTime };
+                    throw new Error("Unknown marker");
+                }
+            } : { numKeys: 0 }
+        };
+        var effect = function (name) {
+            return function (idx) {
+                if (name === "Use Timeline Markers") return 1;
+                if (name === "Intro Duration (s)") return durIn;
+                if (name === "Outro Duration (s)") return 0.20;
+                if (name === "Motion Type") return 1;
+                return 0;
+            };
+        };
+
+        var ease = function (t, tMin, tMax, v1, v2) {
+            return linear(t, tMin, tMax, v1, v2);
+        };
+
+        var dualEngineProgExpr =
+            'var useM = 1; try { useM = effect("Use Timeline Markers")(1); } catch(eM) {}\n' +
+            'var dIn = 0.20; try { dIn = Math.max(0.01, effect("Intro Duration (s)")(1)); } catch(eD) {}\n' +
+            'var tIn = 0.5;\n' +
+            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 1) {\n' +
+            '    try { tIn = thisLayer.marker.key("IN").time; } catch(eK1) { try { tIn = thisLayer.marker.key(1).time; } catch(eK2) {} }\n' +
+            '}\n' +
+            'var mType = 1; try { mType = effect("Motion Type")(1); } catch(eMT) {}\n' +
+            'var res = 0;\n' +
+            'if (mType == 3) {\n' +
+            '    res = (time < tIn) ? 0 : 100;\n' +
+            '} else {\n' +
+            '    if (time < tIn) {\n' +
+            '        res = 0;\n' +
+            '    } else if (time < tIn + dIn) {\n' +
+            '        res = ease(time, tIn, tIn + dIn, 0, 100);\n' +
+            '    } else {\n' +
+            '        res = 100;\n' +
+            '    }\n' +
+            '}\n' +
+            'var hasOut = false;\n' +
+            'var tOut = 0;\n' +
+            'var dOut = 0.20; try { dOut = Math.max(0.01, effect("Outro Duration (s)")(1)); } catch(eDO) {}\n' +
+            'if (useM == 1 && thisLayer.marker && thisLayer.marker.numKeys >= 2) {\n' +
+            '    try { tOut = thisLayer.marker.key("OUT").time; hasOut = true; } catch(eMO) {}\n' +
+            '}\n' +
+            'if (hasOut && time >= tOut) {\n' +
+            '    if (mType == 3) {\n' +
+            '        res = 0;\n' +
+            '    } else {\n' +
+            '        var outP = ease(time, tOut, tOut + dOut, 100, 0);\n' +
+            '        res = Math.min(res, outP);\n' +
+            '    }\n' +
+            '}\n' +
+            'res;';
+
+        return eval(dualEngineProgExpr);
+    }
+
+    assert.strictEqual(Math.round(evalDualEngineProg(true, 1.0, 3.0, 0.20, 0.8)), 0, "Before marker IN, progress is 0");
+    assert.strictEqual(Math.round(evalDualEngineProg(true, 1.0, 3.0, 0.20, 1.1)), 50, "Halfway through marker IN, progress is 50");
+    assert.strictEqual(Math.round(evalDualEngineProg(true, 1.0, 3.0, 0.20, 1.3)), 100, "After marker IN, progress is 100");
+    assert.strictEqual(Math.round(evalDualEngineProg(true, 1.0, 3.0, 0.20, 3.1)), 50, "Halfway through marker OUT, progress is 50");
+    assert.strictEqual(Math.round(evalDualEngineProg(true, 1.0, 3.0, 0.20, 3.3)), 0, "After marker OUT, progress is 0");
+    assert.strictEqual(Math.round(evalDualEngineProg(true, 2.5, 4.0, 0.20, 1.1)), 0, "Moving marker shifts entrance immediately");
+    assert.strictEqual(Math.round(evalDualEngineProg(true, 2.5, 4.0, 0.20, 2.6)), 50, "At shifted marker midpoint, progress is 50");
+    assert.strictEqual(Math.round(evalDualEngineProg(false, 0, 0, 0.20, 0.6)), 50, "Without markers, at 0.6s progress is 50%");
+    assert.strictEqual(Math.round(evalDualEngineProg(false, 0, 0, 0.20, 0.8)), 100, "Without markers, after 0.7s progress is 100%");
+    console.log('  âœ“ Dual-Engine Progress: Timeline markers, dragging & fallbacks verified cleanly');
+
+    // 9. Multi-line Master-Slave Rigging Expression Test
+    function evalMultiLineRig(masterTIn, masterTOut, masterDIn, fStart, fEnd, time) {
+        var masterLayer = {
+            name: '[HL-Phrase] "Multi Line Header"',
+            marker: {
+                numKeys: 2,
+                key: function (ident) {
+                    if (ident === "IN" || ident === 1) return { time: masterTIn };
+                    if (ident === "OUT" || ident === 2) return { time: masterTOut };
+                    throw new Error("Unknown marker");
+                }
+            },
+            effect: function (name) {
+                return function (idx) {
+                    if (name === "Use Timeline Markers") return 1;
+                    if (name === "Intro Duration (s)") return masterDIn;
+                    if (name === "Outro Duration (s)") return 0.20;
+                    if (name === "Motion Type") return 1;
+                    return 0;
+                };
+            }
+        };
+
+        var thisComp = {
+            layer: function (n) {
+                if (n === masterLayer.name) return masterLayer;
+                return null;
+            }
+        };
+
+        var ease = function (t, tMin, tMax, v1, v2) {
+            return linear(t, tMin, tMax, v1, v2);
+        };
+
+        // Slave progress expression logic
+        var slaveProgExpr =
+            'var masterName = "[HL-Phrase] \\"Multi Line Header\\"";\n' +
+            'var pMaster = null; try { pMaster = thisComp.layer(masterName); } catch(eM) {}\n' +
+            'if (!pMaster) {\n' +
+            '    0;\n' +
+            '} else {\n' +
+            '    var useM = 1; try { useM = pMaster.effect("Use Timeline Markers")(1); } catch(eUM) {}\n' +
+            '    var tIn = 1.0;\n' +
+            '    if (useM == 1 && pMaster.marker && pMaster.marker.numKeys >= 1) {\n' +
+            '        try { tIn = pMaster.marker.key("IN").time; } catch(eK1) { try { tIn = pMaster.marker.key(1).time; } catch(eK2) {} }\n' +
+            '    }\n' +
+            '    var dIn = 0.40; try { dIn = Math.max(0.01, pMaster.effect("Intro Duration (s)")(1)); } catch(eDI) {}\n' +
+            '    var fStart = ' + fStart.toFixed(4) + ';\n' +
+            '    var fEnd = ' + fEnd.toFixed(4) + ';\n' +
+            '    var tStart = tIn + (dIn * fStart);\n' +
+            '    var tEnd = tIn + (dIn * fEnd);\n' +
+            '    var res = 0;\n' +
+            '    if (time < tStart) {\n' +
+            '        res = 0;\n' +
+            '    } else if (time < tEnd) {\n' +
+            '        res = ease(time, tStart, tEnd, 0, 100);\n' +
+            '    } else {\n' +
+            '        res = 100;\n' +
+            '    }\n' +
+            '    res;\n' +
+            '}';
+
+        return eval(slaveProgExpr);
+    }
+
+    // Line 1 takes [0.0..0.4], Line 2 takes [0.4..1.0] of 0.40s total intro starting at 1.0s
+    // Line 2 tStart = 1.0 + 0.40*0.4 = 1.16s, tEnd = 1.0 + 0.40*1.0 = 1.40s
+    assert.strictEqual(Math.round(evalMultiLineRig(1.0, 3.0, 0.40, 0.4, 1.0, 1.10)), 0, "Slave line stays 0% while master line is animating");
+    assert.strictEqual(Math.round(evalMultiLineRig(1.0, 3.0, 0.40, 0.4, 1.0, 1.28)), 50, "Slave line is 50% at midpoint of its fraction");
+    assert.strictEqual(Math.round(evalMultiLineRig(1.0, 3.0, 0.40, 0.4, 1.0, 1.45)), 100, "Slave line reaches 100% when its fraction completes");
+    // Shifting Master marker IN from 1.0s to 2.5s shifts Slave line in lockstep without touching Slave layer:
+    assert.strictEqual(Math.round(evalMultiLineRig(2.5, 4.5, 0.40, 0.4, 1.0, 1.28)), 0, "Shifting Master marker IN cleanly delays Slave line");
+    assert.strictEqual(Math.round(evalMultiLineRig(2.5, 4.5, 0.40, 0.4, 1.0, 2.78)), 50, "Slave line animates at shifted Master midpoint (2.5 + 0.40*0.7)");
+    console.log('  âœ“ Multi-Line Master-Slave Rigging: Slave layer derives progress & timeline sync directly from Master');
+
+    // 10. BiDi Numeric Token Reveal Direction Invariant
+    function isNumericOrLatinRTL(subPhrase, rtlLine) {
+        var wordHasArabic = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(subPhrase);
+        var isPureNumericOrLatin = /^[0-9\s.,:;!?\-\(\)\[\]+%$]+$/.test(subPhrase) || /^[A-Za-z0-9\s.,:;!?\-\(\)\[\]+%$]+$/.test(subPhrase);
+        return wordHasArabic ? true : (isPureNumericOrLatin ? false : rtlLine);
+    }
+    assert.strictEqual(isNumericOrLatinRTL("2026", true), false, "Pure year number '2026' in RTL line wipes LTR (box_rtl = false)");
+    assert.strictEqual(isNumericOrLatinRTL("$500", true), false, "Currency number '$500' in RTL line wipes LTR (box_rtl = false)");
+    assert.strictEqual(isNumericOrLatinRTL("OpenBox", true), false, "Latin token in RTL line wipes LTR (box_rtl = false)");
+    assert.strictEqual(isNumericOrLatinRTL("الرئيس", true), true, "Arabic token in RTL line wipes RTL (box_rtl = true)");
+    console.log('  âœ“ BiDi Numeric & Latin Invariant: Pure digits & English words in Arabic lines wipe LTR');
 
     console.log('âœ“ All Expression Evaluation & Math Safety Tests Passed Successfully!\n');
     return true;

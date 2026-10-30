@@ -320,6 +320,31 @@
             if (typeof p.padY === "number" && HS.Controls && HS.Controls.applyLiveParam) HS.Controls.applyLiveParam("padY", p.padY);
             if (typeof p.opacity === "number" && HS.Controls && HS.Controls.applyLiveParam) HS.Controls.applyLiveParam("opacity", p.opacity);
 
+            // Synchronize Phrase Highlight Tab controls
+            if (p.motion && HS.Controls && HS.Controls.setPhraseMotion) {
+                HS.Controls.setPhraseMotion(p.motion);
+            } else if (p.motion && HS.DOM && HS.DOM.phraseMotionSelect) {
+                HS.DOM.phraseMotionSelect.value = p.motion;
+                if (HS.Controls && HS.Controls.syncPhraseMotionButtons) HS.Controls.syncPhraseMotionButtons();
+            }
+            if (p.style && HS.Controls && HS.Controls.setPhraseShape) {
+                HS.Controls.setPhraseShape(p.style);
+            } else if (p.style && HS.DOM && HS.DOM.phraseStyleSelect) {
+                HS.DOM.phraseStyleSelect.value = p.style;
+                if (HS.Controls && HS.Controls.syncPhraseShapeButtons) HS.Controls.syncPhraseShapeButtons();
+            }
+            if (p.color && HS.DOM && HS.DOM.phraseColorInput) {
+                HS.DOM.phraseColorInput.value = p.color;
+                if (HS.Controls && HS.Controls.updatePhraseColorIndicator) HS.Controls.updatePhraseColorIndicator(p.color);
+            }
+            if (typeof p.padX === "number" && HS.DOM && HS.DOM.phrasePadX) HS.DOM.phrasePadX.value = p.padX;
+            if (typeof p.padY === "number" && HS.DOM && HS.DOM.phrasePadY) HS.DOM.phrasePadY.value = p.padY;
+            if (typeof p.outro === "boolean" && HS.DOM && HS.DOM.phraseOutroCheck) HS.DOM.phraseOutroCheck.checked = p.outro;
+            if (typeof p.sequential === "boolean" && HS.DOM && HS.DOM.phraseSeqCheck) HS.DOM.phraseSeqCheck.checked = p.sequential;
+            if (typeof p.outTime === "number" && HS.DOM && HS.DOM.phraseHoldTime) {
+                HS.DOM.phraseHoldTime.value = HS.TimeEngine ? HS.TimeEngine.fromSeconds(p.outTime) : p.outTime;
+            }
+
             var pName = (HS.Presets.custom[id] ? HS.Presets.custom[id].name : (p.name || id));
             HS.setStatus("Preset: '" + pName + "' applied");
         },
