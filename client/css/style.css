@@ -2581,29 +2581,29 @@ label {
 /* ============================================================
    LIVE AUTO-UPDATE BUTTON & PULSING STATUS INDICATOR
    ============================================================ */
-#btn-live-update {
+#btn-live-update, #btn-phrase-live-update {
     position: relative !important;
     transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
 }
 
-#btn-live-update.active {
+#btn-live-update, #btn-phrase-live-update.active {
     background: #142820 !important;
     border-color: #2ecc71 !important;
     color: #2ecc71 !important;
 }
 
-#btn-live-update.active svg {
+#btn-live-update, #btn-phrase-live-update.active svg {
     color: #2ecc71 !important;
     stroke: #2ecc71 !important;
 }
 
-#btn-live-update:not(.active) {
+#btn-live-update, #btn-phrase-live-update:not(.active) {
     background: #1e1e27 !important;
     border-color: rgba(255, 255, 255, 0.10) !important;
     color: #6e6e82 !important;
 }
 
-#btn-live-update:not(.active) svg {
+#btn-live-update, #btn-phrase-live-update:not(.active) svg {
     color: #6e6e82 !important;
     stroke: #6e6e82 !important;
 }
@@ -2620,7 +2620,7 @@ label {
     pointer-events: none;
 }
 
-#btn-live-update.active .live-dot {
+#btn-live-update, #btn-phrase-live-update.active .live-dot {
     background: #2ecc71;
     box-shadow: 0 0 6px rgba(46, 204, 113, 0.9);
     animation: livePulse 2s infinite ease-in-out;

@@ -97,6 +97,7 @@
             this.phraseSeqCheck = document.getElementById("phrase-seq-check");
             this.phraseHoldCol = document.getElementById("phrase-hold-col");
             this.phraseHoldTime = document.getElementById("phrase-hold-time");
+            this.btnPhraseLiveUpdate = document.getElementById("btn-phrase-live-update");
             this.btnApplyPhrase = document.getElementById("btn-apply-phrase");
             this.btnClearPhrase = document.getElementById("btn-clear-phrase");
 

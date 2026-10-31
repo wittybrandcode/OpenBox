@@ -407,8 +407,13 @@
                     HS.State.selectedTokenIndices = [];
                     HS.State.lastClickedTokenIndex = -1;
                     HS.PhraseManager.syncTokenStyles();
-                    HS.PhraseManager.updateBadge();
-                });
+            HS.PhraseManager.updateBadge();
+            if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices.length > 0) {
+                if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) {
+                    HS.Actions.applyPhraseHighlightDebounced(180);
+                }
+            }
+        });
             }
 
             // Restore saved phrase recent color if exists
@@ -427,9 +432,21 @@
             // Phrase Color Input
             if (HS.DOM.phraseColorInput) {
                 HS.DOM.phraseColorInput.addEventListener("input", function () {
-                    if (HS.DOM.phraseColorHex) HS.DOM.phraseColorHex.textContent = this.value.toUpperCase();
+                    HS.markInteraction();
+                    var val = this.value;
+                    if (HS.DOM.phraseColorHex) HS.DOM.phraseColorHex.textContent = val.toUpperCase();
                     if (HS.Controls && HS.Controls.updatePhraseColorIndicator) {
-                        HS.Controls.updatePhraseColorIndicator(this.value);
+                        HS.Controls.updatePhraseColorIndicator(val);
+                    }
+                    if (HS.State.phraseLiveUpdate !== false) {
+                        if (HS.State.selectedTokenIndices.length > 0) {
+                            if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) HS.Actions.applyPhraseHighlightDebounced(100);
+                        } else if (HS.State.appliedPhrases && HS.State.appliedPhrases.length > 0) {
+                            var lastPhr = HS.State.appliedPhrases[HS.State.appliedPhrases.length - 1];
+                            if (lastPhr && lastPhr.id) {
+                                HS.PhraseManager.setPhraseColor(lastPhr.id, val);
+                            }
+                        }
                     }
                 });
                 HS.DOM.phraseColorInput.addEventListener("change", function () {
@@ -442,16 +459,50 @@
             // Phrase Color Swatches
             document.querySelectorAll("#phrase-swatches .swatch-btn").forEach(function (btn) {
                 btn.addEventListener("click", function () {
+                    HS.markInteraction();
                     var col = this.dataset.color;
                     if (HS.DOM.phraseColorInput) HS.DOM.phraseColorInput.value = col;
                     if (HS.DOM.phraseColorHex) HS.DOM.phraseColorHex.textContent = col.toUpperCase();
                     if (HS.Controls && HS.Controls.updatePhraseColorIndicator) {
                         HS.Controls.updatePhraseColorIndicator(col);
                     }
+                    if (HS.State.phraseLiveUpdate !== false) {
+                        if (HS.State.selectedTokenIndices.length > 0) {
+                            if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) HS.Actions.applyPhraseHighlightDebounced(100);
+                        } else if (HS.State.appliedPhrases && HS.State.appliedPhrases.length > 0) {
+                            var lastPhr = HS.State.appliedPhrases[HS.State.appliedPhrases.length - 1];
+                            if (lastPhr && lastPhr.id) {
+                                HS.PhraseManager.setPhraseColor(lastPhr.id, col);
+                            }
+                        }
+                    }
                 });
             });
 
             // Phrase Motion & Outro Listeners
+            
+            // Live Padding inputs for Phrase Highlight
+            ["phrase-pad-x", "phrase-pad-y"].forEach(function (id) {
+                var inp = document.getElementById(id);
+                if (!inp) return;
+                inp.addEventListener("input", function () {
+                    HS.markInteraction();
+                    if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices.length > 0) {
+                        if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) {
+                            HS.Actions.applyPhraseHighlightDebounced(150);
+                        }
+                    }
+                });
+                inp.addEventListener("change", function () {
+                    HS.markInteraction();
+                    if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices.length > 0) {
+                        if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) {
+                            HS.Actions.applyPhraseHighlightDebounced(50);
+                        }
+                    }
+                });
+            });
+
             if (HS.DOM.phraseOutroCheck) {
                 HS.DOM.phraseOutroCheck.addEventListener("change", function () {
                     var enabled = this.checked;
@@ -633,6 +684,11 @@
             }
             HS.PhraseManager.syncTokenStyles();
             HS.PhraseManager.updateBadge();
+            if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices.length > 0) {
+                if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) {
+                    HS.Actions.applyPhraseHighlightDebounced(180);
+                }
+            }
         });
 
         board.addEventListener("mousedown", function (e) {

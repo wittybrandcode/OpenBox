@@ -27,7 +27,35 @@
             HS.Controls.setLiveUpdate(!HS.State.liveUpdate);
         },
 
-                syncLiveUpdateUI: function () {
+                
+        setPhraseLiveUpdate: function (enabled) {
+            HS.markInteraction();
+            HS.State.phraseLiveUpdate = !!enabled;
+            try {
+                var storage = (typeof localStorage !== "undefined") ? localStorage : (window && window.localStorage ? window.localStorage : null);
+                if (storage) storage.setItem("hs_phrase_live_update", HS.State.phraseLiveUpdate ? "true" : "false");
+            } catch (e) {}
+            HS.Controls.syncPhraseLiveUpdateUI();
+            var msg = HS.State.phraseLiveUpdate
+                ? "Phrase Live Auto-Update: ENABLED (تم تفعيل المزامنة اللحظية لتظليل العبارات)"
+                : "Phrase Live Auto-Update: PAUSED (تم إيقاف المزامنة اللحظية - استخدم زر التطبيق)";
+            HS.setStatus(msg);
+        },
+
+        togglePhraseLiveUpdate: function () {
+            HS.Controls.setPhraseLiveUpdate(!HS.State.phraseLiveUpdate);
+        },
+
+        syncPhraseLiveUpdateUI: function () {
+            if (!HS.DOM || !HS.DOM.btnPhraseLiveUpdate) return;
+            var isActive = (HS.State.phraseLiveUpdate !== false);
+            HS.DOM.btnPhraseLiveUpdate.classList.toggle("active", isActive);
+            HS.DOM.btnPhraseLiveUpdate.setAttribute("data-active", isActive ? "true" : "false");
+            HS.DOM.btnPhraseLiveUpdate.title = isActive
+                ? "المزامنة اللحظية لتظليل العبارات: مفعلة (يتم تطبيق وتحديث التظليل فوراً في After Effects)"
+                : "المزامنة اللحظية لتظليل العبارات: معطلة (التطبيق يتم يدوياً بالضغط على زر التطبيق)";
+        },
+        syncLiveUpdateUI: function () {
             if (!HS.DOM || !HS.DOM.btnLiveUpdate) return;
             var isActive = (HS.State.liveUpdate !== false);
             HS.DOM.btnLiveUpdate.classList.toggle("active", isActive);
@@ -97,6 +125,23 @@
                     HS.setStatus(res.replace("SUCCESS:", "").trim());
                 }
             });
+        },
+
+        isTimeInput: function (input) {
+            if (!input || !input.id) return false;
+            return (input.id === "time-in-point" || input.id === "time-out-point" || input.id === "line-dur" || input.id === "out-time" || input.id === "stagger" || input.id === "phrase-hold-time");
+        },
+
+        updateTimeInputTooltip: function (input) {
+            if (!HS.Controls.isTimeInput(input)) return;
+            var allowZero = (input.id === "stagger" || input.id === "time-in-point");
+            var tip = HS.TimeEngine ? HS.TimeEngine.getTooltipText(input.value, allowZero) : input.value;
+            input.title = tip;
+            var box = input.closest(".precision-input-box");
+            if (box) {
+                var lbl = box.querySelector(".scrub-label");
+                if (lbl) lbl.title = tip;
+            }
         },
 
         pad2: function (num) {
@@ -662,6 +707,9 @@
                 HS.DOM.phraseStyleSelect.value = shape;
             }
             HS.Controls.syncPhraseShapeButtons();
+            if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices && HS.State.selectedTokenIndices.length > 0) {
+                if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) HS.Actions.applyPhraseHighlightDebounced(150);
+            }
             var shapeLabels = {
                 box: "Box (Ù…Ø³ØªØ·ÙŠÙ„)",
                 pill: "Pill (ÙƒØ¨Ø³ÙˆÙ„Ø©)",
@@ -686,6 +734,9 @@
                 HS.DOM.phraseMotionSelect.dispatchEvent(new Event("change", { bubbles: true }));
             }
             HS.Controls.syncPhraseMotionButtons();
+            if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices && HS.State.selectedTokenIndices.length > 0) {
+                if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) HS.Actions.applyPhraseHighlightDebounced(150);
+            }
             var motionLabels = {
                 typewriter: "Typewriter Sync (ÙƒØªØ§Ø¨Ø© Ù…ØªØ²Ø§Ù…Ù†Ø©)",
                 wipe: "Smooth Wipe (Ù…Ø³Ø­ ØªØ¯Ø±ÙŠØ¬ÙŠ)",
@@ -1237,6 +1288,25 @@
             HS.Controls.syncLiveUpdateUI();
 
             // Live Update Toggle Button Click Listener
+            
+            // Restore Phrase Live Update preference
+            try {
+                var storageP = (typeof localStorage !== "undefined") ? localStorage : (window && window.localStorage ? window.localStorage : null);
+                if (storageP) {
+                    var savedPLive = storageP.getItem("hs_phrase_live_update");
+                    if (savedPLive !== null) {
+                        HS.State.phraseLiveUpdate = (savedPLive === "true");
+                    }
+                }
+            } catch (e) {}
+            HS.Controls.syncPhraseLiveUpdateUI();
+
+            if (HS.DOM.btnPhraseLiveUpdate) {
+                HS.DOM.btnPhraseLiveUpdate.addEventListener("click", function () {
+                    HS.Controls.togglePhraseLiveUpdate();
+                });
+            }
+    
             if (HS.DOM.btnLiveUpdate) {
                 HS.DOM.btnLiveUpdate.addEventListener("click", function () {
                     HS.Controls.toggleLiveUpdate();

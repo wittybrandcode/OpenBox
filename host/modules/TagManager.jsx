@@ -510,11 +510,13 @@ $._smartHighlighter.buildPhraseHighlights = function (jsonPayloadStr) {
         if (!comp || !(comp instanceof CompItem)) {
             return "ERROR: Please select an active composition";
         }
-        var layers = comp.selectedLayers;
-        if (!layers || layers.length === 0) {
+        var textLayer = $._smartHighlighter.resolveTargetTextLayer ? $._smartHighlighter.resolveTargetTextLayer(comp) : null;
+        if (!textLayer && comp.selectedLayers && comp.selectedLayers.length > 0) {
+            textLayer = comp.selectedLayers[0];
+        }
+        if (!textLayer) {
             return "ERROR: Please select a Text Layer";
         }
-        var textLayer = layers[0];
         if (!(textLayer instanceof TextLayer)) {
             if (textLayer.parent && (textLayer.parent instanceof TextLayer)) {
                 textLayer = textLayer.parent;
@@ -1679,23 +1681,39 @@ $._smartHighlighter.setPhraseColor = function (phraseId, newHexColor) {
         var updated = 0;
         var phraseTag = "SMART_HL_PHRASE";
 
+        var matchAll = (phraseId === "all");
+        var matchLast = (phraseId === "last");
+        var lastFound = null;
+
         for (var i = 1; i <= comp.numLayers; i++) {
             var l = comp.layer(i);
             if (!l) continue;
             var c = l.comment || "";
             var isPhrase = (c.indexOf(phraseTag) !== -1) || (l.name && l.name.indexOf("[HL-Phrase]") !== -1);
-            if (isPhrase && (c.indexOf("id:" + phraseId) !== -1 || phraseId === ("phrase_layer_" + l.index) || l.name.indexOf(phraseId) !== -1)) {
-                try {
-                    var colFx = l.effect("Local Color");
-                    if (colFx && colFx.property(1)) {
-                        colFx.property(1).setValue(rgb);
-                    }
-                    if (c.indexOf("color:") !== -1) {
-                        l.comment = c.replace(/color:[^\|]+/, "color:" + newHexColor);
-                    }
-                    updated++;
-                } catch (eUp) {}
+            if (isPhrase) {
+                if (matchAll || c.indexOf("id:" + phraseId) !== -1 || phraseId === ("phrase_layer_" + l.index) || l.name.indexOf(phraseId) !== -1) {
+                    try {
+                        var colFx = l.effect("Local Color");
+                        if (colFx && colFx.property(1)) {
+                            colFx.property(1).setValue(rgb);
+                        }
+                        if (c.indexOf("color:") !== -1) {
+                            l.comment = c.replace(/color:[^\|]+/, "color:" + newHexColor);
+                        }
+                        updated++;
+                    } catch (eUp) {}
+                }
+                if (matchLast && !lastFound) {
+                    lastFound = l;
+                }
             }
+        }
+        if (matchLast && lastFound) {
+            try {
+                var cFx = lastFound.effect("Local Color");
+                if (cFx && cFx.property(1)) cFx.property(1).setValue(rgb);
+                updated++;
+            } catch(eL) {}
         }
         var msg = "SUCCESS: Updated color for phrase (" + updated + " layer(s))";
         $._smartHighlighter.log(msg);

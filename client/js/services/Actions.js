@@ -90,6 +90,21 @@
             });
         },
 
+        _phraseDebounceTimer: null,
+        applyPhraseHighlightDebounced: function (delayMs) {
+            HS.markInteraction();
+            if (HS.State.phraseLiveUpdate === false) return;
+            if (HS.State.selectedTokenIndices.length === 0) return;
+            if (HS.Actions._phraseDebounceTimer) {
+                clearTimeout(HS.Actions._phraseDebounceTimer);
+            }
+            var d = (typeof delayMs === "number" && delayMs >= 0) ? delayMs : 200;
+            HS.Actions._phraseDebounceTimer = setTimeout(function () {
+                HS.Actions._phraseDebounceTimer = null;
+                HS.Actions.applyPhraseHighlight();
+            }, d);
+        },
+
         applyPhraseHighlight: function () {
             if (!HS.PhraseManager) return;
             var phrases = HS.PhraseManager.getSelectedPhrases();
