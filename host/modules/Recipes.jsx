@@ -490,17 +490,11 @@ var getStandardPositionSnippet = function (ctx) {
         '    var offY = (useM == 1 && pLayer && pLayer.effect("Master Offset Y")) ? pLayer.effect("Master Offset Y")(1) : effect("Local Offset Y")(1);\n\n' +
         '    var baseFS = ' + safeBaseFS.toFixed(2) + ';\n' +
         '    var curFS = baseFS;\n' +
-        '    var r = { left: ' + safeBaseLeft.toFixed(2) + ', top: ' + safeBaseTop.toFixed(2) + ', width: ' + safeBaseTotalW.toFixed(2) + ', height: ' + safeBaseTotalH.toFixed(2) + ' };\n' +
-        '    if (r.width <= 0.5 || r.height <= 0.5) { try { r = pLayer.sourceRectAtTime(0, false); } catch(eSrat) {} }\n' +
+        '    var r = pLayer.sourceRectAtTime(0, false);\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime(time, false); }\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime((pLayer.inPoint + pLayer.outPoint) * 0.5, false); }\n' +
         '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (Math.max(1, r.height) / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
         '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n';
-
-    if (hasStaticBounds) {
-        posSnippet +=
-            '    if (r.width <= 0.5 || r.height <= 0.5) {\n' +
-            '        r = { left: ' + safeBaseLeft.toFixed(2) + ' * fontRatio, top: ' + safeBaseTop.toFixed(2) + ' * fontRatio, width: ' + safeBaseTotalW.toFixed(2) + ' * fontRatio, height: ' + safeBaseTotalH.toFixed(2) + ' * fontRatio };\n' +
-            '    }\n';
-    }
 
     posSnippet +=
         '    var p = 1; try { p = clamp(effect("Progress")(1) / 100, 0, 1); } catch(eP) {}\n' +
@@ -656,10 +650,11 @@ var getStandardSizeSnippet = function (ctx) {
         '    var useM = 0; try { useM = effect("Use Master Controls")(1); } catch(eM) {}\n' +
         '    var pX = (useM == 1 && pLayer && pLayer.effect("Master Padding X")) ? pLayer.effect("Master Padding X")(1) : effect("Local Padding X")(1);\n' +
         '    var pY = (useM == 1 && pLayer && pLayer.effect("Master Padding Y")) ? pLayer.effect("Master Padding Y")(1) : effect("Local Padding Y")(1);\n\n' +
+        '    var r = pLayer.sourceRectAtTime(0, false);\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime(time, false); }\n' +
+        '    if (r.width <= 0.5 || r.height <= 0.5) { r = pLayer.sourceRectAtTime((pLayer.inPoint + pLayer.outPoint) * 0.5, false); }\n' +
         '    var baseFS = ' + safeBaseFS.toFixed(2) + ';\n' +
         '    var curFS = baseFS;\n' +
-        '    var r = { left: ' + safeBaseLeft.toFixed(2) + ', top: ' + safeBaseTop.toFixed(2) + ', width: ' + safeBaseTotalW.toFixed(2) + ', height: ' + safeBaseTotalH.toFixed(2) + ' };\n' +
-        '    if (r.width <= 0.5 || r.height <= 0.5) { try { r = pLayer.sourceRectAtTime(0, false); } catch(eSrat) {} }\n' +
         '    try { curFS = pLayer.text.sourceText.style.fontSize; } catch(err) { curFS = baseFS * (Math.max(1, r.height) / Math.max(1, ' + safeBaseTotalH.toFixed(2) + ')); }\n' +
         '    var fontRatio = Math.max(0.01, curFS / Math.max(1, baseFS));\n\n' +
         '    var p = 1; try { p = clamp(effect("Progress")(1) / 100, 0, 1); } catch(eP) {}\n' +
