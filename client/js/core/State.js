@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OPENBOX â€” State Module
  * Central reactive runtime state repository.
  */
@@ -18,6 +18,7 @@
         boxOutroOrder: "first",     // "first" (1->N) | "last" (N->1)
         syncOutro: true,            // true (containers follow text) | false (independent)
         liveUpdate: true,           // true (auto push changes to AE) | false (manual push via lightning bolt)
+        isUserEditing: false,       // true when user is actively dragging or typing
         lastUserInteraction: 0,
         lastSyncedLayer: "",
         lastTokensRawText: null,
@@ -37,5 +38,10 @@
     // Mark user interaction timestamp to prevent background polling overwrites
     HS.markInteraction = function () {
         HS.State.lastUserInteraction = Date.now();
+        HS.State.isUserEditing = true;
+        if (HS._clearEditTimer) clearTimeout(HS._clearEditTimer);
+        HS._clearEditTimer = setTimeout(function () {
+            if (HS.State) HS.State.isUserEditing = false;
+        }, 2000);
     };
 })(window);

@@ -27,25 +27,52 @@
             HS.Controls.setLiveUpdate(!HS.State.liveUpdate);
         },
 
-        syncLiveUpdateUI: function () {
+                syncLiveUpdateUI: function () {
             if (!HS.DOM || !HS.DOM.btnLiveUpdate) return;
             var isActive = (HS.State.liveUpdate !== false);
             HS.DOM.btnLiveUpdate.classList.toggle("active", isActive);
             HS.DOM.btnLiveUpdate.setAttribute("data-active", isActive ? "true" : "false");
             HS.DOM.btnLiveUpdate.title = isActive
-                ? "Live Auto-Update: ON (ØªØ­Ø¯ÙŠØ« Ù…Ø¨Ø§Ø´Ø± ØªÙ„Ù‚Ø§Ø¦ÙŠ Ù†Ø´Ø· - Ø§Ù†Ù‚Ø± Ù„Ù„ØªØ¹Ø·ÙŠÙ„ ÙˆØ§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯ Ø¹Ù„Ù‰ Ø²Ø± Ø§Ù„Ø¨Ø±Ù‚)"
-                : "Live Auto-Update: OFF (ØªØ­Ø¯ÙŠØ« Ù…Ø¨Ø§Ø´Ø± Ù…Ø¹Ø·Ù‘Ù„ - Ø§Ù†Ù‚Ø± Ù„Ù„ØªÙØ¹ÙŠÙ„ Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ)";
+                ? "المزامنة اللحظية: مفعلة (يتم تطبيق التغييرات فوراً في After Effects)"
+                : "المزامنة اللحظية: معطلة (التطبيق يتم يدوياً بالضغط على زر الصاعقة ⚡)";
+        },
+
+        liveColorTimer: null,
+        applyLiveColorThrottled: function (hex) {
+            HS.markInteraction();
+            if (HS.State.liveUpdate === false) return;
+            if (HS.Controls.liveColorTimer) {
+                cancelAnimationFrame(HS.Controls.liveColorTimer);
+            }
+            HS.Controls.liveColorTimer = requestAnimationFrame(function () {
+                HS.Controls.applyLiveColor(hex);
+                HS.Controls.liveColorTimer = null;
+            });
         },
 
         applyLiveColor: function (hex) {
+            HS.markInteraction();
             if (HS.State.liveUpdate === false) return;
-            HS.Bridge.eval("$._smartHighlighter.setQuickColor('" + hex + "', 'all')", function (res) {
+            var scope = HS.State.scope || "all";
+            HS.Bridge.eval("$._smartHighlighter.setQuickColor('" + hex + "', '" + scope + "')", function (res) {
                 if (res && res.indexOf("SUCCESS") !== -1) {
                     HS.setStatus(res.replace("SUCCESS:", "").trim());
                 } else if (res && res.indexOf("ERROR") !== -1) {
                     HS.setStatus(res.replace("ERROR:", "").trim(), true);
                 }
             });
+        },
+
+        beginLiveDrag: function (paramName) {
+            HS.markInteraction();
+            if (HS.State.liveUpdate === false) return;
+            HS.Bridge.eval("$._smartHighlighter.beginLiveTransaction('" + (paramName || "Adjustment") + "')");
+        },
+
+        endLiveDrag: function () {
+            HS.markInteraction();
+            if (HS.State.liveUpdate === false) return;
+            HS.Bridge.eval("$._smartHighlighter.commitLiveTransaction()");
         },
 
         liveParamTimers: {},
@@ -64,28 +91,12 @@
         applyLiveParam: function (paramName, val) {
             HS.markInteraction();
             if (HS.State.liveUpdate === false) return;
-            HS.Bridge.eval("$._smartHighlighter.setQuickParam('" + paramName + "', " + val + ", 'all')", function (res) {
+            var scope = HS.State.scope || "all";
+            HS.Bridge.eval("$._smartHighlighter.setQuickParam('" + paramName + "', " + val + ", '" + scope + "')", function (res) {
                 if (res && res.indexOf("SUCCESS") !== -1) {
                     HS.setStatus(res.replace("SUCCESS:", "").trim());
                 }
             });
-        },
-
-        isTimeInput: function (input) {
-            if (!input || !input.id) return false;
-            return (input.id === "time-in-point" || input.id === "time-out-point" || input.id === "line-dur" || input.id === "out-time" || input.id === "stagger" || input.id === "phrase-hold-time");
-        },
-
-        updateTimeInputTooltip: function (input) {
-            if (!HS.Controls.isTimeInput(input)) return;
-            var allowZero = (input.id === "stagger" || input.id === "time-in-point");
-            var tip = HS.TimeEngine ? HS.TimeEngine.getTooltipText(input.value, allowZero) : input.value;
-            input.title = tip;
-            var box = input.closest(".precision-input-box");
-            if (box) {
-                var lbl = box.querySelector(".scrub-label");
-                if (lbl) lbl.title = tip;
-            }
         },
 
         pad2: function (num) {
@@ -253,8 +264,12 @@
                         HS.Controls.syncChipClasses();
                     }
                     if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
                         HS.Actions.executeSmartAction(false);
                     }
+                }
                 } else if (res && res.indexOf("ERROR") !== -1) {
                     HS.setStatus(res.replace("ERROR:", "").trim(), true);
                 }
@@ -356,8 +371,12 @@
             var label = (order === "last") ? "Reverse (â†)" : "Forward (â†’)";
             HS.setStatus("Text Exit Direction: " + label);
             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                HS.Actions.executeSmartAction(false);
-            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
         },
 
         setBoxOutroOrder: function (order) {
@@ -367,8 +386,12 @@
             var label = (order === "last") ? "Reverse (â†)" : "Forward (â†’)";
             HS.setStatus("Containers Exit Direction: " + label);
             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                HS.Actions.executeSmartAction(false);
-            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
         },
 
         setOutroSync: function (isSynced) {
@@ -381,8 +404,12 @@
             var desc = HS.State.syncOutro ? "Containers Synced to Text (ØªØ²Ø§Ù…Ù† Ø§Ù„Ø­Ø§ÙˆÙŠØ§Øª Ù…Ø¹ Ø§Ù„Ù†Øµ)" : "Independent Exit (Ø®Ø±ÙˆØ¬ Ù…Ù†ÙØµÙ„ Ù„Ù„Ø­Ø§ÙˆÙŠØ§Øª)";
             HS.setStatus("Outro Sync: " + desc);
             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                HS.Actions.executeSmartAction(false);
-            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
         },
 
         syncOutroDirectionUI: function () {
@@ -440,8 +467,12 @@
             };
             HS.setStatus("Shape: " + (shapeLabels[shape] || shape));
             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                HS.Actions.executeSmartAction(false);
-            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
         },
 
         syncShapeButtons: function () {
@@ -465,8 +496,12 @@
             };
             HS.setStatus("Direction: " + (dirLabels[dir] || dir));
             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                HS.Actions.executeSmartAction(false);
-            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
         },
 
         syncDirectionButtons: function () {
@@ -485,8 +520,12 @@
             HS.Controls.syncMotionButtons();
             HS.Controls.syncTypewriterButtons();
             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                HS.Actions.executeSmartAction(false);
-            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
         },
 
         setTypewriterMode: function (mode) {
@@ -502,8 +541,12 @@
             var modeLabel = (mode === "sequential") ? "Sequential (ØªØªØ§Ø¨Ø¹ Ø§Ù„Ø£Ø³Ø·Ø±)" : "Parallel Lines (Ø¨Ø¯Ø¡ Ø§Ù„Ø£Ø³Ø·Ø± Ø¨Ø§Ù„ØªÙˆØ§Ø²ÙŠ)";
             HS.setStatus("Typewriter Mode: " + modeLabel);
             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                HS.Actions.executeSmartAction(false);
-            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
         },
 
         toggleTypewriterSpeedMode: function () {
@@ -522,8 +565,12 @@
             var speedLabel = (next === "synced") ? "Synchronized Finish (Ø§Ù†ØªÙ‡Ø§Ø¡ Ù…ØªØ²Ø§Ù…Ù†)" : "Constant Speed (Ø«Ø¨Ø§Øª Ø³Ø±Ø¹Ø© Ø§Ù„ÙƒÙ„Ù…Ø§Øª)";
             HS.setStatus("Typewriter Speed: " + speedLabel);
             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                HS.Actions.executeSmartAction(false);
-            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
         },
 
         syncTypewriterButtons: function () {
@@ -707,8 +754,12 @@
                     this.classList.toggle("active", !!HS.State.fullWidth);
                     HS.setStatus(HS.State.fullWidth ? "Width Mode: Full Block (عرض موحد لكامل الفقرة)" : "Width Mode: Dynamic Fit (عرض متناسب مع كل سطر)");
                     if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
                         HS.Actions.executeSmartAction(false);
                     }
+                }
                 });
             }
 
@@ -796,16 +847,20 @@
             // Color Picker & Swatches in Tab 1
             if (HS.DOM.colorPicker) {
                 HS.Controls.updateColorIndicator(HS.DOM.colorPicker.value);
+                HS.DOM.colorPicker.addEventListener("pointerdown", function () {
+                    HS.Controls.beginLiveDrag("Color");
+                });
                 HS.DOM.colorPicker.addEventListener("input", function () {
                     HS.markInteraction();
                     HS.Controls.updateColorIndicator(this.value);
                     if (HS.DOM.colorHex) HS.DOM.colorHex.textContent = this.value.toUpperCase();
-                    HS.Controls.applyLiveColor(this.value);
+                    HS.Controls.applyLiveColorThrottled(this.value);
                 });
                 HS.DOM.colorPicker.addEventListener("change", function () {
                     HS.markInteraction();
                     HS.Controls.updateColorIndicator(this.value);
                     HS.Controls.applyLiveColor(this.value);
+                    HS.Controls.endLiveDrag();
                 });
             }
 
@@ -828,23 +883,28 @@
                 });
             });
 
-            // Live Parameter Inputs (padX, padY, roundness, opacity)
-            if (HS.DOM.roundInput) {
-                HS.DOM.roundInput.addEventListener("input", function () { HS.Controls.applyLiveParamThrottled("roundness", parseFloat(this.value) || 0); });
-                HS.DOM.roundInput.addEventListener("change", function () { HS.Controls.applyLiveParam("roundness", parseFloat(this.value) || 0); });
-            }
-            if (HS.DOM.padXInput) {
-                HS.DOM.padXInput.addEventListener("input", function () { HS.Controls.applyLiveParamThrottled("padX", parseFloat(this.value) || 0); });
-                HS.DOM.padXInput.addEventListener("change", function () { HS.Controls.applyLiveParam("padX", parseFloat(this.value) || 0); });
-            }
-            if (HS.DOM.padYInput) {
-                HS.DOM.padYInput.addEventListener("input", function () { HS.Controls.applyLiveParamThrottled("padY", parseFloat(this.value) || 0); });
-                HS.DOM.padYInput.addEventListener("change", function () { HS.Controls.applyLiveParam("padY", parseFloat(this.value) || 0); });
-            }
-            if (HS.DOM.opacityInput) {
-                HS.DOM.opacityInput.addEventListener("input", function () { HS.Controls.applyLiveParamThrottled("opacity", parseFloat(this.value) || 100); });
-                HS.DOM.opacityInput.addEventListener("change", function () { HS.Controls.applyLiveParam("opacity", parseFloat(this.value) || 100); });
-            }
+                        // Live Parameter Inputs (padX, padY, roundness, opacity) with Transaction Drag Consolidation
+            [
+                { el: HS.DOM.roundInput, name: "roundness", def: 0 },
+                { el: HS.DOM.padXInput, name: "padX", def: 10 },
+                { el: HS.DOM.padYInput, name: "padY", def: 10 },
+                { el: HS.DOM.opacityInput, name: "opacity", def: 100 }
+            ].forEach(function (item) {
+                if (!item.el) return;
+                item.el.addEventListener("pointerdown", function () {
+                    HS.Controls.beginLiveDrag(item.name);
+                });
+                item.el.addEventListener("input", function () {
+                    HS.Controls.applyLiveParamThrottled(item.name, parseFloat(this.value) || item.def);
+                });
+                item.el.addEventListener("change", function () {
+                    HS.Controls.applyLiveParam(item.name, parseFloat(this.value) || item.def);
+                    HS.Controls.endLiveDrag();
+                });
+                item.el.addEventListener("blur", function () {
+                    HS.Controls.endLiveDrag();
+                });
+            });
 
             // Animation check & Motion Select
             if (HS.DOM.animCheck) {
@@ -884,8 +944,12 @@
                     var uLabel = (uVal === "words") ? "Words (ÙƒÙ„Ù…Ø© Ø¨ÙƒÙ„Ù…Ø©)" : ((uVal === "lines") ? "Lines (Ø³Ø·Ø± Ø¨Ø³Ø·Ø±)" : "Characters (Ø­Ø±Ù Ø¨Ø­Ø±Ù)");
                     HS.setStatus("Reveal Unit: " + uLabel);
                     if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
                         HS.Actions.executeSmartAction(false);
                     }
+                }
                 });
             }
 
@@ -909,8 +973,12 @@
                     }
 
                     if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
                         HS.Actions.executeSmartAction(false);
                     }
+                }
                 });
             }
 
@@ -953,8 +1021,12 @@
                                 HS.Controls.syncMarkersToAE();
                             }
                             if (HS.State.liveUpdate !== false && HS.State.mainTab === "paragraph" && HS.State.hasHighlight) {
-                                HS.Actions.executeSmartAction(false);
-                            }
+                    if (HS.Actions && HS.Actions.executeSmartActionDebounced) {
+                        HS.Actions.executeSmartActionDebounced(250);
+                    } else {
+                        HS.Actions.executeSmartAction(false);
+                    }
+                }
                         }
                     });
                 }
@@ -1052,6 +1124,7 @@
                     if (!input || input.disabled) return;
 
                     e.preventDefault();
+                    HS.Controls.beginLiveDrag(targetId);
                     var startX = e.clientX;
                     var isTime = HS.Controls.isTimeInput(input);
                     var allowZero = (input.id === "stagger");
@@ -1095,6 +1168,7 @@
 
                     function onMouseUp() {
                         document.body.classList.remove("is-scrubbing");
+                        HS.Controls.endLiveDrag();
                         window.removeEventListener("mousemove", onMouseMove);
                         window.removeEventListener("mouseup", onMouseUp);
                         input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -1168,6 +1242,14 @@
                     HS.Controls.toggleLiveUpdate();
                 });
             }
+
+            // Keyboard Shortcut: Alt + L to toggle Live Update
+            window.addEventListener("keydown", function (e) {
+                if (e.altKey && (e.key === "l" || e.key === "L" || e.code === "KeyL")) {
+                    e.preventDefault();
+                    HS.Controls.toggleLiveUpdate();
+                }
+            });
 
             // Initialize time inputs for current FPS
             HS.Controls.updateTimeInputsForFps((HS.State && HS.State.fps) ? HS.State.fps : 25);

@@ -26,6 +26,7 @@ const suites = [
     { name: 'Render Performance & Expression Caching', path: './unit/render_benchmark.test.js' },
     { name: 'Expression Safety & Evaluation', path: './integration/expression_syntax.test.js' },
     { name: 'Zero Undo-Leaks & Balance', path: './integration/undo_safety.test.js' },
+    { name: 'Real-Time Live Sync & Reactive Engine', path: './unit/live_sync_benchmark.test.js' },
     { name: 'Codebase Syntax & AST Check', path: './integration/syntax_validation.test.js' }
 ];
 

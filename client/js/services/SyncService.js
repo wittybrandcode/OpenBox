@@ -18,7 +18,7 @@
             HS.Sync.isSyncing = true;
 
             // Protect active user input from being overwritten by background polling
-            var isRecentEdit = (Date.now() - HS.State.lastUserInteraction < 2500);
+            var isRecentEdit = (Date.now() - HS.State.lastUserInteraction < 2500) || (document.body && document.body.classList.contains("is-scrubbing")) || (HS.State && HS.State.isUserEditing);
 
             // Only query full text content when user is actively on Phrase Highlight tab
             var needText = (HS.State.mainTab === "phrases");

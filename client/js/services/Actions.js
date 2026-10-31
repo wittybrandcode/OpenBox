@@ -47,6 +47,20 @@
             };
         },
 
+        _structuralDebounceTimer: null,
+        executeSmartActionDebounced: function (delayMs) {
+            HS.markInteraction();
+            if (HS.State.liveUpdate === false) return;
+            if (HS.Actions._structuralDebounceTimer) {
+                clearTimeout(HS.Actions._structuralDebounceTimer);
+            }
+            var d = (typeof delayMs === "number" && delayMs >= 0) ? delayMs : 250;
+            HS.Actions._structuralDebounceTimer = setTimeout(function () {
+                HS.Actions._structuralDebounceTimer = null;
+                HS.Actions.executeSmartAction(false);
+            }, d);
+        },
+
         executeSmartAction: function (isClearOnly) {
             HS.Bridge.ensureLoaded(function () {
                 if (isClearOnly) {

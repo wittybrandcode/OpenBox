@@ -181,13 +181,21 @@ $._smartHighlighter.readTimingMarkers = function (textLayer) {
 
 // Ø¥Ù†Ø´Ø§Ø¡ Ø£Ùˆ ØªØ­Ø¯ÙŠØ« Ù…Ø§Ø±ÙƒØ±Ø² Ø§Ù„ØªÙˆÙ‚ÙŠØª Ø§Ù„Ø£Ø±Ø¨Ø¹Ø© Ø¹Ù„Ù‰ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ
 $._smartHighlighter.addTimingMarkers = function (inPoint, outPoint, inDur, outDur, hasOutro) {
-    var comp = app.project.activeItem;
-    if (!comp || !(comp instanceof CompItem)) return "ERROR: Ù„Ø§ ØªÙˆØ¬Ø¯ ØªØ±ÙƒÙŠØ¨Ø© Ù…ÙØªÙˆØ­Ø©.";
-    if (comp.selectedLayers.length !== 1) return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ Ø£ÙˆÙ„Ø§Ù‹.";
+    var comp = app.project ? app.project.activeItem : null;
+    if (!comp || !(comp instanceof CompItem)) {
+        if (app.project && app.project.item(1) instanceof CompItem) {
+            comp = app.project.item(1);
+        } else {
+            return "ERROR: لا توجد تركيبة مفتوحة.";
+        }
+    }
 
-    var lyr = comp.selectedLayers[0];
-    var textLayer = (lyr instanceof TextLayer) ? lyr : ((lyr instanceof ShapeLayer && lyr.parent) ? lyr.parent : null);
-    if (!textLayer) return "ERROR: Ø§Ù„Ø·Ø¨Ù‚Ø© Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© Ù„ÙŠØ³Øª Ø·Ø¨Ù‚Ø© Ù†Øµ.";
+    var textLayer = $._smartHighlighter.resolveTargetTextLayer ? $._smartHighlighter.resolveTargetTextLayer(comp) : null;
+    if (!textLayer && comp.selectedLayers && comp.selectedLayers.length === 1) {
+        var lyr = comp.selectedLayers[0];
+        textLayer = (lyr instanceof TextLayer) ? lyr : ((lyr instanceof ShapeLayer && lyr.parent) ? lyr.parent : null);
+    }
+    if (!textLayer) return "ERROR: يرجى تحديد طبقة النص أولاً.";
 
     var mProp = textLayer.property("ADBE Marker");
     if (!mProp) return "ERROR: ØªØ¹Ø°Ø± Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ø®Ø§ØµÙŠØ© Ø§Ù„Ù…Ø§Ø±ÙƒØ±Ø².";
@@ -451,20 +459,78 @@ $._smartHighlighter.getCompFps = function () {
 };
 
 // ØªØ¨Ø¯ÙŠÙ„ Ù†Ù…Ø· Ø§Ù„ØªØ­ÙƒÙ… (Master vs Local) Ù„Ù„Ø·Ø¨Ù‚Ø§Øª Ø§Ù„Ù…Ø­Ø¯Ø¯Ø© ÙÙŠ After Effects
+
+// ============================================================
+// LIVE SYNC & TRANSACTION CONSOLIDATION ENGINE
+// ============================================================
+$._smartHighlighter._inLiveTransaction = false;
+
+$._smartHighlighter.beginLiveTransaction = function (transactionName) {
+    if (!$._smartHighlighter._inLiveTransaction) {
+        try {
+            app.beginUndoGroup("OpenBox: " + (transactionName || "Live Adjustment"));
+            $._smartHighlighter._inLiveTransaction = true;
+        } catch (e) {}
+    }
+    return "TRANSACTION_BEGUN";
+};
+
+$._smartHighlighter.commitLiveTransaction = function () {
+    if ($._smartHighlighter._inLiveTransaction) {
+        try {
+            $._smartHighlighter.safeEndUndoGroup();
+            $._smartHighlighter._inLiveTransaction = false;
+        } catch (e) {}
+    }
+    return "TRANSACTION_COMMITTED";
+};
+
+$._smartHighlighter.ensureEffect = function (layer, fxType, fxName, defaultVal) {
+    if (!layer) return null;
+    var fx = layer.effect(fxName);
+    if (!fx) {
+        try {
+            fx = layer.property("ADBE Effect Parade").addProperty(fxType);
+            fx.name = fxName;
+            if (defaultVal !== undefined) fx.property(1).setValue(defaultVal);
+        } catch (e) {}
+    }
+    return fx;
+};
+
 $._smartHighlighter.setScopeMode = function (targetScope) {
-    var comp = app.project.activeItem;
-    if (!comp || !(comp instanceof CompItem)) return "ERROR: Ù„Ø§ ØªÙˆØ¬Ø¯ ØªØ±ÙƒÙŠØ¨Ø© Ù…ÙØªÙˆØ­Ø©.";
-    if (comp.selectedLayers.length !== 1) return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© ÙˆØ§Ø­Ø¯Ø©.";
+    var comp = app.project ? app.project.activeItem : null;
+    if (!comp || !(comp instanceof CompItem)) {
+        if (app.project && app.project.item(1) instanceof CompItem) {
+            comp = app.project.item(1);
+        } else {
+            return "ERROR: لا توجد تركيبة مفتوحة.";
+        }
+    }
 
-    var lyr = comp.selectedLayers[0];
     var tag = $._smartHighlighter.LAYER_COMMENT || "SMART_HL_PRO_LAYER";
-    var textLayer = (lyr instanceof TextLayer) ? lyr : ((lyr instanceof ShapeLayer && lyr.parent) ? lyr.parent : null);
-    if (!textLayer) return "ERROR: Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø·Ø¨Ù‚Ø© Ù†Øµ Ù…Ø±ØªØ¨Ø·Ø©.";
+    var textLayer = $._smartHighlighter.resolveTargetTextLayer ? $._smartHighlighter.resolveTargetTextLayer(comp) : null;
+    var lyr = (comp.selectedLayers && comp.selectedLayers.length === 1) ? comp.selectedLayers[0] : null;
+    if (!textLayer && lyr) {
+        textLayer = (lyr instanceof TextLayer) ? lyr : ((lyr instanceof ShapeLayer && lyr.parent) ? lyr.parent : null);
+    }
+    if (!textLayer) {
+        for (var si = 1; si <= comp.numLayers; si++) {
+            var candidate = comp.layer(si);
+            if (candidate && candidate.comment === tag && candidate.parent && (candidate.parent instanceof TextLayer)) {
+                textLayer = candidate.parent;
+                break;
+            }
+        }
+    }
+    if (!textLayer) return "ERROR: لم يتم العثور على طبقة نص مرتبطة.";
 
-    app.beginUndoGroup("OpenBox: Scope Mode (" + targetScope + ")");
+    var managedUndo = !$._smartHighlighter._inLiveTransaction;
+    if (managedUndo) {
+        app.beginUndoGroup("OpenBox: Scope Mode (" + targetScope + ")");
+    }
     try {
         if (targetScope === "all") {
-            // Ø¥Ø¹Ø§Ø¯Ø© Ø±Ø¨Ø· ÙƒÙ„ Ø§Ù„Ø£Ø³Ø·Ø± Ø¨Ø§Ù„Ù…Ø§Ø³ØªØ±
             for (var j = 1; j <= comp.numLayers; j++) {
                 var lBox = comp.layer(j);
                 if (lBox && lBox.parent === textLayer && lBox.comment === tag) {
@@ -474,11 +540,10 @@ $._smartHighlighter.setScopeMode = function (targetScope) {
             }
             return "SUCCESS: Linked all lines to Master Controls.";
         } else if (targetScope === "line") {
-            // ÙØµÙ„ Ø§Ù„Ø³Ø·Ø± Ø§Ù„Ù…Ø­Ø¯Ø¯ Ù„ÙŠØ¹ØªÙ…Ø¯ Ø§Ù„ØªØ­ÙƒÙ… Ø§Ù„Ù…Ø­Ù„ÙŠ
             var targetShape = (lyr instanceof ShapeLayer && lyr.comment === tag) ? lyr : null;
             if (!targetShape) {
-                for (var si = 1; si <= comp.numLayers; si++) {
-                    var chk = comp.layer(si);
+                for (var s = 1; s <= comp.numLayers; s++) {
+                    var chk = comp.layer(s);
                     if (chk && chk.parent === textLayer && chk.comment === tag) {
                         targetShape = chk;
                         break;
@@ -495,71 +560,89 @@ $._smartHighlighter.setScopeMode = function (targetScope) {
     } catch (e) {
         return "ERROR: " + e.toString();
     } finally {
-        $._smartHighlighter.safeEndUndoGroup();
+        if (managedUndo) {
+            $._smartHighlighter.safeEndUndoGroup();
+        }
     }
 };
 
-// ØªØ·Ø¨ÙŠÙ‚ Ø§Ù„Ù„ÙˆÙ† Ø§Ù„Ù…Ø¨Ø§Ø´Ø± Ø¨Ù†Ù…Ø·ÙŠÙ†: Ø¹Ù„Ù‰ ÙƒÙ„ Ø§Ù„Ø£Ø³Ø·Ø± (all) Ø£Ùˆ Ø¹Ù„Ù‰ Ø§Ù„Ø³Ø·Ø± Ø§Ù„Ù…Ø­Ø¯Ø¯ ÙÙ‚Ø· (line)
 $._smartHighlighter.setQuickColor = function (hexColorStr, targetScope) {
-    var comp = app.project.activeItem;
-    if (!comp || !(comp instanceof CompItem)) return "ERROR: Ù„Ø§ ØªÙˆØ¬Ø¯ ØªØ±ÙƒÙŠØ¨Ø© Ù…ÙØªÙˆØ­Ø©.";
-    if (comp.selectedLayers.length !== 1) return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© ÙˆØ§Ø­Ø¯Ø©.";
+    var comp = app.project ? app.project.activeItem : null;
+    if (!comp || !(comp instanceof CompItem)) {
+        if (app.project && app.project.item(1) instanceof CompItem) {
+            comp = app.project.item(1);
+        } else {
+            return "ERROR: لا توجد تركيبة مفتوحة.";
+        }
+    }
 
-    var lyr = comp.selectedLayers[0];
-    var rgba = $._smartHighlighter.hexToRgba(hexColorStr);
-    if (!rgba) return "ERROR: Ø®Ø·Ø£ ÙÙŠ ØµÙŠØ§ØºØ© Ø§Ù„Ù„ÙˆÙ†.";
-
-    var scope = targetScope || "all";
     var tag = $._smartHighlighter.LAYER_COMMENT || "SMART_HL_PRO_LAYER";
-
-    var textLayer = null;
+    var textLayer = $._smartHighlighter.resolveTargetTextLayer ? $._smartHighlighter.resolveTargetTextLayer(comp) : null;
     var shapeLayer = null;
 
-    if (lyr instanceof TextLayer) {
-        textLayer = lyr;
-    } else if (lyr instanceof ShapeLayer && lyr.comment === tag) {
-        shapeLayer = lyr;
-        textLayer = lyr.parent;
+    if (comp.selectedLayers && comp.selectedLayers.length === 1) {
+        var sel = comp.selectedLayers[0];
+        if (sel instanceof ShapeLayer && sel.comment === tag) {
+            shapeLayer = sel;
+            if (!textLayer && sel.parent && (sel.parent instanceof TextLayer)) textLayer = sel.parent;
+        }
     }
 
     if (!textLayer && !shapeLayer) {
-        return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ Ø£Ùˆ Ø¥Ø­Ø¯Ù‰ Ø·Ø¨Ù‚Ø§Øª Ø§Ù„Ù‡Ø§ÙŠÙ„Ø§ÙŠØª.";
+        for (var si = 1; si <= comp.numLayers; si++) {
+            var chk = comp.layer(si);
+            if (chk && chk.comment === tag && chk.parent && (chk.parent instanceof TextLayer)) {
+                textLayer = chk.parent;
+                if (!shapeLayer) shapeLayer = chk;
+                break;
+            }
+        }
     }
 
-    app.beginUndoGroup("OpenBox: Quick Color (" + scope + ")");
+    if (!textLayer && !shapeLayer) {
+        return "ERROR: يرجى تحديد طبقة النص أو إحدى طبقات التظليل.";
+    }
+
+    var rgba = $._smartHighlighter.hexToRgba(hexColorStr);
+    if (!rgba) return "ERROR: خطأ في صياغة اللون.";
+
+    var scope = targetScope || "all";
+    var managedUndo = !$._smartHighlighter._inLiveTransaction;
+    if (managedUndo) {
+        app.beginUndoGroup("OpenBox: Quick Color (" + scope + ")");
+    }
     try {
         if (scope === "line") {
-            // ØªÙ„ÙˆÙŠÙ† Ø§Ù„Ø³Ø·Ø± Ø§Ù„Ù…Ø­Ø¯Ø¯ ÙÙ‚Ø·
             if (!shapeLayer && textLayer) {
-                for (var si = 1; si <= comp.numLayers; si++) {
-                    var chk = comp.layer(si);
-                    if (chk && chk.parent === textLayer && chk.comment === tag) {
-                        shapeLayer = chk;
+                for (var s = 1; s <= comp.numLayers; s++) {
+                    var lBox = comp.layer(s);
+                    if (lBox && lBox.parent === textLayer && lBox.comment === tag) {
+                        shapeLayer = lBox;
                         break;
                     }
                 }
             }
             if (shapeLayer) {
-                var locColFx = shapeLayer.effect("Local Color");
+                var locColFx = $._smartHighlighter.ensureEffect(shapeLayer, "ADBE Color Control", "Local Color", rgba);
                 var useMFx = shapeLayer.effect("Use Master Controls");
                 if (locColFx) locColFx.property(1).setValue(rgba);
-                if (useMFx) useMFx.property(1).setValue(0); // ÙÙƒ Ø§Ù„Ø§Ø±ØªØ¨Ø§Ø· Ù„ÙŠØ¹ØªÙ…Ø¯ Ø§Ù„Ù„ÙˆÙ† Ø§Ù„Ù…Ø­Ù„ÙŠ ÙÙˆØ±Ø§Ù‹
+                if (useMFx) useMFx.property(1).setValue(0);
                 return "SUCCESS: Color applied to " + shapeLayer.name + " only.";
             } else {
-                return "ERROR: Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø·Ø¨Ù‚Ø© Ø³Ø·Ø± Ù…Ø­Ø¯Ø¯Ø©.";
+                return "ERROR: لم يتم العثور على طبقة سطر محددة.";
             }
         } else {
-            // ØªÙ„ÙˆÙŠÙ† ÙƒÙ„ Ø§Ù„Ø£Ø³Ø·Ø± Ù…Ø¹Ø§Ù‹ (All Lines / Master)
+            // All Lines / Master
             if (textLayer) {
-                var mColFx = textLayer.effect("Master Highlight Color");
+                var mColFx = $._smartHighlighter.ensureEffect(textLayer, "ADBE Color Control", "Master Highlight Color", rgba);
                 if (mColFx) {
                     mColFx.property(1).setValue(rgba);
                 }
                 for (var j = 1; j <= comp.numLayers; j++) {
-                    var lBox = comp.layer(j);
-                    if (lBox && lBox.parent === textLayer && lBox.comment === tag) {
-                        var boxUseM = lBox.effect("Use Master Controls");
-                        if (boxUseM) boxUseM.property(1).setValue(1);
+                    var bLayer = comp.layer(j);
+                    if (bLayer && bLayer.parent === textLayer && bLayer.comment === tag) {
+                        var bUseM = bLayer.effect("Use Master Controls");
+                        if (bUseM) bUseM.property(1).setValue(1);
                     }
                 }
                 return "SUCCESS: Color applied to all lines (Master).";
@@ -569,19 +652,24 @@ $._smartHighlighter.setQuickColor = function (hexColorStr, targetScope) {
     } catch (e) {
         return "ERROR: " + e.toString();
     } finally {
-        $._smartHighlighter.safeEndUndoGroup();
+        if (managedUndo) {
+            $._smartHighlighter.safeEndUndoGroup();
+        }
     }
 };
 
-// ØªØ·Ø¨ÙŠÙ‚ ØªØ¹Ø¯ÙŠÙ„ ÙÙˆØ±ÙŠ ÙˆÙ…Ø¨Ø§Ø´Ø± Ù„Ù„Ù…Ù‚Ø§ÙŠÙŠØ³ (ØªØ¯ÙˆÙŠØ± Ø§Ù„Ø²ÙˆØ§ÙŠØ§ØŒ Ø§Ù„Ø­ÙˆØ§ÙØŒ Ø§Ù„Ø´ÙØ§ÙÙŠØ©) ÙÙŠ After Effects
 $._smartHighlighter.setQuickParam = function (paramName, numVal, targetScope) {
-    var comp = app.project.activeItem;
-    if (!comp || !(comp instanceof CompItem)) return "ERROR: Ù„Ø§ ØªÙˆØ¬Ø¯ ØªØ±ÙƒÙŠØ¨Ø© Ù…ÙØªÙˆØ­Ø©.";
-    if (comp.selectedLayers.length !== 1) return "ERROR: ÙŠØ±Ø¬Ù‰ ØªØ­Ø¯ÙŠØ¯ Ø·Ø¨Ù‚Ø© ÙˆØ§Ø­Ø¯Ø©.";
+    var comp = app.project ? app.project.activeItem : null;
+    if (!comp || !(comp instanceof CompItem)) {
+        if (app.project && app.project.item(1) instanceof CompItem) {
+            comp = app.project.item(1);
+        } else {
+            return "ERROR: لا توجد تركيبة مفتوحة.";
+        }
+    }
 
-    var lyr = comp.selectedLayers[0];
     var val = parseFloat(numVal);
-    if (isNaN(val)) return "ERROR: Ù‚ÙŠÙ…Ø© ØºÙŠØ± ØµØ§Ù„Ø­Ø©.";
+    if (isNaN(val)) return "ERROR: قيمة غير صالحة.";
 
     var scope = targetScope || "all";
     var tag = $._smartHighlighter.LAYER_COMMENT || "SMART_HL_PRO_LAYER";
@@ -600,58 +688,78 @@ $._smartHighlighter.setQuickParam = function (paramName, numVal, targetScope) {
     } else if (paramName === "opacity") {
         fxMasterName = "Master Highlight Opacity";
         fxLocalName = "Local Opacity";
+    } else if (paramName === "offsetY") {
+        fxMasterName = "Master Offset Y";
+        fxLocalName = "Local Offset Y";
+    } else if (paramName === "useMaster" || paramName === "scope") {
+        return $._smartHighlighter.setScopeMode(val === 1 ? "all" : "line");
     } else {
-        return "ERROR: Ù…Ø¹Ù„Ù…Ø© ØºÙŠØ± Ù…Ø¹Ø±ÙˆÙØ©.";
+        return "ERROR: معلمة غير معروفة: " + paramName;
     }
 
-    var textLayer = null;
+    var textLayer = $._smartHighlighter.resolveTargetTextLayer ? $._smartHighlighter.resolveTargetTextLayer(comp) : null;
     var shapeLayer = null;
 
-    if (lyr instanceof TextLayer) {
-        textLayer = lyr;
-    } else if (lyr instanceof ShapeLayer && lyr.comment === tag) {
-        shapeLayer = lyr;
-        textLayer = lyr.parent;
+    if (comp.selectedLayers && comp.selectedLayers.length === 1) {
+        var sel = comp.selectedLayers[0];
+        if (sel instanceof ShapeLayer && sel.comment === tag) {
+            shapeLayer = sel;
+            if (!textLayer && sel.parent && (sel.parent instanceof TextLayer)) textLayer = sel.parent;
+        }
+    }
+
+    if (!textLayer && !shapeLayer) {
+        for (var si = 1; si <= comp.numLayers; si++) {
+            var chk = comp.layer(si);
+            if (chk && chk.comment === tag && chk.parent && (chk.parent instanceof TextLayer)) {
+                textLayer = chk.parent;
+                if (!shapeLayer) shapeLayer = chk;
+                break;
+            }
+        }
     }
 
     if (!textLayer && !shapeLayer) {
         return "NO_HIGHLIGHT";
     }
 
-    app.beginUndoGroup("OpenBox: " + fxMasterName);
+    var managedUndo = !$._smartHighlighter._inLiveTransaction;
+    if (managedUndo) {
+        app.beginUndoGroup("OpenBox: " + fxMasterName);
+    }
     try {
         if (scope === "line") {
             if (!shapeLayer && textLayer) {
-                for (var si = 1; si <= comp.numLayers; si++) {
-                    var chk = comp.layer(si);
-                    if (chk && chk.parent === textLayer && chk.comment === tag) {
-                        shapeLayer = chk;
+                for (var s = 1; s <= comp.numLayers; s++) {
+                    var lBox = comp.layer(s);
+                    if (lBox && lBox.parent === textLayer && lBox.comment === tag) {
+                        shapeLayer = lBox;
                         break;
                     }
                 }
             }
             if (shapeLayer) {
-                var locFx = shapeLayer.effect(fxLocalName);
+                var locFx = $._smartHighlighter.ensureEffect(shapeLayer, "ADBE Slider Control", fxLocalName, val);
                 var useMFx = shapeLayer.effect("Use Master Controls");
                 if (locFx) locFx.property(1).setValue(val);
                 if (useMFx) useMFx.property(1).setValue(0);
                 return "SUCCESS: " + paramName + " -> " + val + " (" + shapeLayer.name + ")";
             } else {
-                return "ERROR: Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø·Ø¨Ù‚Ø© Ø³Ø·Ø±.";
+                return "ERROR: لم يتم العثور على طبقة سطر.";
             }
         } else {
-            // Ù†Ù…Ø· All Lines: ØªØ­Ø¯ÙŠØ« Ø§Ù„Ù…Ø§Ø³ØªØ± Ø¹Ù„Ù‰ Ø·Ø¨Ù‚Ø© Ø§Ù„Ù†Øµ
+            // Master / All Lines
             if (textLayer) {
-                var mFx = textLayer.effect(fxMasterName);
+                var mFx = $._smartHighlighter.ensureEffect(textLayer, "ADBE Slider Control", fxMasterName, val);
                 if (mFx) {
                     mFx.property(1).setValue(val);
                 }
                 for (var j = 1; j <= comp.numLayers; j++) {
-                    var lBox = comp.layer(j);
-                    if (lBox && lBox.parent === textLayer && lBox.comment === tag) {
-                        var boxUseM = lBox.effect("Use Master Controls");
-                        if (boxUseM && boxUseM.property(1).value === 0) {
-                            var locProp = lBox.effect(fxLocalName);
+                    var bLayer = comp.layer(j);
+                    if (bLayer && bLayer.parent === textLayer && bLayer.comment === tag) {
+                        var bUseM = bLayer.effect("Use Master Controls");
+                        if (bUseM && bUseM.property(1).value === 0) {
+                            var locProp = bLayer.effect(fxLocalName);
                             if (locProp) locProp.property(1).setValue(val);
                         }
                     }
@@ -663,7 +771,9 @@ $._smartHighlighter.setQuickParam = function (paramName, numVal, targetScope) {
     } catch (e) {
         return "ERROR: " + e.toString();
     } finally {
-        $._smartHighlighter.safeEndUndoGroup();
+        if (managedUndo) {
+            $._smartHighlighter.safeEndUndoGroup();
+        }
     }
 };
 
