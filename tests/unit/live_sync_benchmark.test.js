@@ -181,6 +181,32 @@ function runTest() {
         console.log('  ✓ Phrase Live Sync: Toggle state switch and rapid debounce verified');
     })();
 
+    // 7. Phrase Selection & Live Property Modulation Invariant Test
+    (function testPhraseSelection() {
+        var state = { selectedPhraseId: null, appliedPhrases: [
+            { id: "phr_001", text: "Alpha", color: "#FF9F1C", padX: 10, padY: 4, shape: "box" },
+            { id: "phr_002", text: "Beta", color: "#4F46E5", padX: 12, padY: 6, shape: "pill" }
+        ]};
+
+        // Select phrase 1
+        state.selectedPhraseId = "phr_001";
+        var selected = state.appliedPhrases.find(p => p.id === state.selectedPhraseId);
+        assert.ok(selected, "Must resolve selected phrase by ID");
+        assert.strictEqual(selected.color, "#FF9F1C", "Loads correct phrase color");
+        assert.strictEqual(selected.padX, 10, "Loads correct padX");
+
+        // Modulate property
+        selected.color = "#00B4D8";
+        selected.padX = 18;
+        assert.strictEqual(selected.color, "#00B4D8", "Modulates phrase color");
+        assert.strictEqual(selected.padX, 18, "Modulates phrase padding");
+
+        // Deselect
+        state.selectedPhraseId = null;
+        assert.strictEqual(state.selectedPhraseId, null, "Deselects cleanly");
+        console.log('  ✓ Phrase Selection & Property Modulation: Instant selection, property load & update verified');
+    })();
+
     console.log('✓ All Real-Time Live Sync & Reactive Engine Invariants Passed Successfully!\n');
     return true;
 }

@@ -98,6 +98,10 @@
             this.phraseHoldCol = document.getElementById("phrase-hold-col");
             this.phraseHoldTime = document.getElementById("phrase-hold-time");
             this.btnPhraseLiveUpdate = document.getElementById("btn-phrase-live-update");
+            this.phraseEditingBar = document.getElementById("phrase-editing-bar");
+            this.phraseEditingName = document.getElementById("phrase-editing-name");
+            this.phraseEditingDot = document.getElementById("phrase-editing-dot");
+            this.btnPhraseDeselect = document.getElementById("btn-phrase-deselect");
             this.btnApplyPhrase = document.getElementById("btn-apply-phrase");
             this.btnClearPhrase = document.getElementById("btn-clear-phrase");
 

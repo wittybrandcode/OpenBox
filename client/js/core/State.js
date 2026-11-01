@@ -18,7 +18,8 @@
         boxOutroOrder: "first",     // "first" (1->N) | "last" (N->1)
         syncOutro: true,            // true (containers follow text) | false (independent)
         liveUpdate: true,
-        phraseLiveUpdate: true,           // true (auto push changes to AE) | false (manual push via lightning bolt)
+        phraseLiveUpdate: true,
+        selectedPhraseId: null,           // true (auto push changes to AE) | false (manual push via lightning bolt)
         isUserEditing: false,       // true when user is actively dragging or typing
         lastUserInteraction: 0,
         lastSyncedLayer: "",

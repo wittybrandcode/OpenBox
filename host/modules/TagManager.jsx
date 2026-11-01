@@ -1599,11 +1599,46 @@ $._smartHighlighter.getAppliedPhrases = function (targetLayerName) {
                     }
                 }
 
+                var pPadX = 10;
+                try {
+                    var pXProp = l.effect("Local Padding X");
+                    if (pXProp && pXProp.property(1)) pPadX = Math.round(pXProp.property(1).value);
+                } catch(ePx) {}
+
+                var pPadY = 4;
+                try {
+                    var pYProp = l.effect("Local Padding Y");
+                    if (pYProp && pYProp.property(1)) pPadY = Math.round(pYProp.property(1).value);
+                } catch(ePy) {}
+
+                var pRound = 0;
+                try {
+                    var rProp = l.effect("Local Roundness");
+                    if (rProp && rProp.property(1)) pRound = Math.round(rProp.property(1).value);
+                } catch(ePr) {}
+
+                var pShape = (pRound >= 25) ? "pill" : "box";
+                var pMotion = "wipe";
+                try {
+                    var mProp = l.effect("Motion Type");
+                    if (mProp && mProp.property(1)) {
+                        var mv = mProp.property(1).value;
+                        if (mv === 2) pMotion = "pop";
+                        else if (mv === 3) pMotion = "snap";
+                        else if (mv === 4) pMotion = "typewriter";
+                    }
+                } catch(ePm) {}
+
                 if (!phrasesMap[pId]) {
                     var phrObj = {
                         id: pId,
                         text: pText,
                         color: pCol,
+                        padX: pPadX,
+                        padY: pPadY,
+                        roundness: pRound,
+                        shape: pShape,
+                        motion: pMotion,
                         charStart: Math.max(0, pCs),
                         charEnd: Math.max(pCs, pCe),
                         boxCount: 1
@@ -1670,6 +1705,95 @@ $._smartHighlighter.removeSinglePhrase = function (phraseId) {
 /**
  * تعديل لون عبارة مظللة حياً في After Effects دون إعادة إنشاء الطبقة أو المساس بالماركرز
  */
+
+/**
+ * تحديث خاصية محددة لعبارة مطبقة في After Effects (اللون، الحواشي، الاستدارة، الحركة)
+ */
+$._smartHighlighter.setPhraseProperty = function (phraseId, propName, value) {
+    try {
+        var comp = app.project.activeItem;
+        if (!comp || !(comp instanceof CompItem)) return "ERROR: Please select an active composition";
+        if (!phraseId || !propName) return "ERROR: Missing phraseId or property name";
+
+        app.beginUndoGroup("OpenBox: Update Phrase " + propName);
+        var updated = 0;
+        var phraseTag = "SMART_HL_PHRASE";
+        var matchAll = (phraseId === "all");
+
+        for (var i = 1; i <= comp.numLayers; i++) {
+            var l = comp.layer(i);
+            if (!l) continue;
+            var c = l.comment || "";
+            var isPhrase = (c.indexOf(phraseTag) !== -1) || (l.name && l.name.indexOf("[HL-Phrase]") !== -1);
+            if (isPhrase && (matchAll || c.indexOf("id:" + phraseId) !== -1 || phraseId === ("phrase_layer_" + l.index) || l.name.indexOf(phraseId) !== -1)) {
+                try {
+                    if (propName === "color") {
+                        var rgb = $._smartHighlighter.hexToRgba ? $._smartHighlighter.hexToRgba(value) : [0.18, 0.8, 0.44, 1.0];
+                        var colFx = l.effect("Local Color");
+                        if (colFx && colFx.property(1)) colFx.property(1).setValue(rgb);
+                        if (c.indexOf("color:") !== -1) {
+                            l.comment = c.replace(/color:[^\|]+/, "color:" + value);
+                        }
+                        updated++;
+                    } else if (propName === "paddingX" || propName === "padX") {
+                        var pXFx = l.effect("Local Padding X");
+                        if (pXFx && pXFx.property(1)) {
+                            pXFx.property(1).setValue(Number(value));
+                            updated++;
+                        }
+                    } else if (propName === "paddingY" || propName === "padY") {
+                        var pYFx = l.effect("Local Padding Y");
+                        if (pYFx && pYFx.property(1)) {
+                            pYFx.property(1).setValue(Number(value));
+                            updated++;
+                        }
+                    } else if (propName === "roundness") {
+                        var rFx = l.effect("Local Roundness");
+                        if (rFx && rFx.property(1)) {
+                            rFx.property(1).setValue(Number(value));
+                            updated++;
+                        }
+                    } else if (propName === "shape") {
+                        var rFx2 = l.effect("Local Roundness");
+                        if (rFx2 && rFx2.property(1)) {
+                            var rVal = (value === "pill") ? 50 : 0;
+                            rFx2.property(1).setValue(rVal);
+                            updated++;
+                        }
+                        if (value === "marker") {
+                            var oFx = l.effect("Local Opacity");
+                            if (oFx && oFx.property(1)) oFx.property(1).setValue(85);
+                        }
+                    } else if (propName === "opacity") {
+                        var opFx = l.effect("Local Opacity");
+                        if (opFx && opFx.property(1)) {
+                            opFx.property(1).setValue(Number(value));
+                            updated++;
+                        }
+                    } else if (propName === "motion") {
+                        var mFx = l.effect("Motion Type");
+                        if (mFx && mFx.property(1)) {
+                            var mVal = 1;
+                            if (value === "pop" || value === "elastic") mVal = 2;
+                            else if (value === "snap") mVal = 3;
+                            else if (value === "typewriter") mVal = 4;
+                            mFx.property(1).setValue(mVal);
+                            updated++;
+                        }
+                    }
+                } catch(eFx) {}
+            }
+        }
+        var msg = "SUCCESS: Updated " + propName + " for phrase (" + updated + " layer(s))";
+        $._smartHighlighter.log(msg);
+        return msg;
+    } catch(e) {
+        return "ERROR: " + e.toString();
+    } finally {
+        $._smartHighlighter.safeEndUndoGroup();
+    }
+};
+
 $._smartHighlighter.setPhraseColor = function (phraseId, newHexColor) {
     try {
         var comp = app.project.activeItem;

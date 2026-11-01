@@ -534,14 +534,14 @@
                 <div class="tokens-board-header">
                     <div class="tokens-stats-bar">
                         <!-- Words count badge: FileText icon + Number -->
-                        <div class="token-stat-badge" title="Selected Words (عدد الكلمات)">
+                        <div class="token-stat-badge" title="Selected Words">
                             <!-- Lucide: FileText -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
                             <span id="phrase-count-badge" class="stat-number">0</span>
                         </div>
 
                         <!-- Characters count badge: Type icon + Number -->
-                        <div class="token-stat-badge" title="Selected Characters (عدد الأحرف)">
+                        <div class="token-stat-badge" title="Selected Characters">
                             <!-- Lucide: Type -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
                             <span id="phrase-char-badge" class="stat-number">0</span>
@@ -549,7 +549,7 @@
                     </div>
 
                     <!-- Clear selection X icon button -->
-                    <button type="button" id="btn-phrase-clear-sel" class="square-icon-btn danger" title="Clear selection (إلغاء التحديد)">
+                    <button type="button" id="btn-phrase-clear-sel" class="square-icon-btn danger" title="Clear Selection">
                         <!-- Lucide: X -->
                         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                     </button>
@@ -558,12 +558,12 @@
                 <!-- Live Clickable Word Tokens Board -->
                 <div id="tokens-board" class="tokens-board" dir="auto">
                     <div class="tokens-empty-state">
-                        <span>Select a Text Layer in After Effects to load words</span>
+                        <span>Select text layer in AE</span>
                     </div>
                 </div>
 
                 <!-- Movable Resizer Handle (فاصل متحرك لتكبير وتصغير حيز النص) -->
-                <div class="tokens-resize-handle" id="tokens-resize-handle" title="Drag to resize height (اسحب لتكبير أو تصغير الحيز)">
+                <div class="tokens-resize-handle" id="tokens-resize-handle" title="Drag to resize">
                     <span class="resize-grip"></span>
                 </div>
 
@@ -571,22 +571,25 @@
                 <div class="applied-phrases-card" id="applied-phrases-wrap" style="display: none;">
                     <div class="applied-phrases-header">
                         <div class="applied-header-left">
-                            <span class="applied-phrases-title">Applied Phrases in AE</span>
+                            <span class="applied-phrases-title">Phrases</span>
                             <span id="applied-phrases-count" class="applied-count-badge">0</span>
                         </div>
-                        <button type="button" id="btn-phrase-resync" class="btn-phrase-resync" title="Re-sync highlight positions if text was modified in AE (إعادة مواءمة التظليل عند تعديل النص في After Effects)">
-                            <span class="resync-icon">🔄</span> Re-Sync
+                        <button type="button" id="btn-phrase-resync" class="btn-phrase-resync-icon" title="Re-Sync Highlights">
+                            <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
                         </button>
                     </div>
-                    <!-- Visual Phrase Mini-Sequencer Track [TASK-601 / EV-05] -->
+                    <!-- Sleek Visual Phrase Mini-Sequencer Track (Clean, direct timeline overview) -->
                     <div class="mini-sequencer-track" id="phrase-mini-sequencer" style="display: none;">
-                        <div class="sequencer-bar-header">
-                            <span class="sequencer-title">⏱️ Visual Sequencer</span>
-                            <span id="sequencer-range" class="sequencer-range">Timeline Overview</span>
-                        </div>
                         <div class="sequencer-timeline" id="sequencer-timeline-bars">
                             <!-- Populated dynamically by HS.PhraseManager -->
                         </div>
+                    </div>
+                    <!-- Active Editing Indicator Bar for Selected Phrase -->
+                    <div class="phrase-editing-bar" id="phrase-editing-bar" style="display: none;">
+                        <span class="editing-indicator-dot" id="phrase-editing-dot"></span>
+                        <span class="editing-prefix">ACTIVE:</span>
+                        <span class="editing-text" id="phrase-editing-name"></span>
+                        <button type="button" class="editing-deselect-btn" id="btn-phrase-deselect" title="Deselect Phrase (إلغاء التحديد)">✕</button>
                     </div>
                     <div id="applied-phrases-list" class="applied-phrases-list">
                         <!-- Dynamic badges populated by HS.PhraseManager -->
@@ -604,7 +607,7 @@
                 <!-- Compact Phrase Appearance Toolbar Row: Shape Buttons + Animation Buttons + Color Trigger -->
                 <div class="compact-appearance-row">
                     <!-- 1. Phrase Shape Group -->
-                    <div class="icon-btn-group" title="Phrase Shape (شكل تظليل العبارة)">
+                    <div class="icon-btn-group" title="Phrase Shape">
                         <button type="button" class="square-icon-btn phrase-shape-btn active" data-shape="box" title="Box (مستطيل كامل)">
                             <!-- Lucide: Square -->
                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
@@ -630,7 +633,7 @@
                     <div class="row-divider"></div>
 
                     <!-- 2. Phrase Animation / Motion Group -->
-                    <div class="icon-btn-group" title="Phrase Animation (نوع حركة تظليل العبارة)">
+                    <div class="icon-btn-group" title="Phrase Animation">
                         <button type="button" class="square-icon-btn phrase-motion-btn" data-motion="typewriter" title="Typewriter Sync (كتابة متزامنة)">
                             <!-- Lucide: Type / Typewriter -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
@@ -658,7 +661,7 @@
                     <div class="row-divider"></div>
 
                     <!-- 3. Phrase Square Color Picker Button -->
-                    <div class="color-picker-square-wrap" title="Phrase Color (اختر لون العبارة)">
+                    <div class="color-picker-square-wrap" title="Phrase Color">
                         <input type="color" id="phrase-color-input" value="#2ecc71">
                         <button type="button" class="square-icon-btn color-trigger-btn" id="btn-phrase-color-trigger" title="Phrase Color (اختر لون العبارة)">
                             <span class="color-dot" id="phrase-color-indicator-dot" style="background-color: #2ecc71;"></span>
@@ -685,7 +688,7 @@
                 </div>
 
                 <div class="metrics-grid-2x2">
-                    <div class="precision-input-box compact-metric-box" title="Phrase Horizontal Padding (توسيع أفقي للعبارة)">
+                    <div class="precision-input-box compact-metric-box" title="Padding X">
                         <label class="scrub-label" data-target="phrase-pad-x" title="Phrase Horizontal Padding (اسحب للتعديل)">
                             <!-- Lucide: MoveHorizontal -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 8 22 12 18 16"/><polyline points="6 8 2 12 6 16"/><line x1="2" x2="22" y1="12" y2="12"/></svg>
@@ -700,7 +703,7 @@
                         </div>
                     </div>
 
-                    <div class="precision-input-box compact-metric-box" title="Phrase Vertical Padding (توسيع رأسي للعبارة)">
+                    <div class="precision-input-box compact-metric-box" title="Padding Y">
                         <label class="scrub-label" data-target="phrase-pad-y" title="Phrase Vertical Padding (اسحب للتعديل)">
                             <!-- Lucide: MoveVertical -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 18 12 22 16 18"/><polyline points="8 6 12 2 16 6"/><line x1="12" x2="12" y1="2" y2="22"/></svg>
@@ -718,13 +721,13 @@
 
                 <!-- Phrase Motion Dynamics & Outro Controls (Phase 3) -->
                 <div class="phrase-timing-row">
-                    <div class="icon-btn-group" title="Timing & Sequencing (التوقيت والتسلسل)">
-                        <label class="square-icon-btn chip-toggle active" id="chip-phrase-outro" data-active="true" title="Outro Exit Animation (حركة خروج للعبارة)">
+                    <div class="icon-btn-group" title="Timing">
+                        <label class="square-icon-btn chip-toggle active" id="chip-phrase-outro" data-active="true" title="Outro Exit">
                             <input type="checkbox" id="phrase-outro-check" checked>
                             <!-- Lucide: LogOut -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                         </label>
-                        <label class="square-icon-btn chip-toggle" id="chip-phrase-seq" data-active="false" title="Sequential Phrases (تشغيل العبارات واحدة تلو الأخرى)">
+                        <label class="square-icon-btn chip-toggle" id="chip-phrase-seq" data-active="false" title="Sequential">
                             <input type="checkbox" id="phrase-seq-check">
                             <!-- Lucide: ArrowDown -->
                             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="4" x2="12" y2="20"/><polyline points="18 14 12 20 6 14"/></svg>
