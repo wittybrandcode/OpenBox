@@ -150,13 +150,42 @@
             HS.PhraseManager.syncAppliedPhrases();
         },
 
+        clearSelection: function () {
+            HS.markInteraction();
+            HS.State.selectedTokenIndices = [];
+            HS.State.lastClickedTokenIndex = -1;
+            HS.PhraseManager.syncTokenStyles();
+            HS.PhraseManager.updateBadge();
+            HS.setStatus("Phrase selection cleared");
+        },
+
         syncTokenStyles: function () {
             if (!HS.DOM || !HS.DOM.tokensBoard) return;
+
+            // Remove any existing pending cancel buttons
+            var oldCancels = HS.DOM.tokensBoard.querySelectorAll(".phrase-pending-cancel-btn");
+            oldCancels.forEach(function (btn) { btn.remove(); });
+
             var buttons = HS.DOM.tokensBoard.querySelectorAll(".word-token");
+            var selIndices = HS.State.selectedTokenIndices || [];
+            var maxSelIdx = -1;
+            if (selIndices.length > 0) {
+                maxSelIdx = Math.max.apply(Math, selIndices);
+            }
+
             buttons.forEach(function (b) {
                 var idx = parseInt(b.dataset.tokenIndex, 10);
-                var isSel = (HS.State.selectedTokenIndices.indexOf(idx) !== -1);
+                var isSel = (selIndices.indexOf(idx) !== -1);
                 b.classList.toggle("selected", isSel);
+
+                // Attach inline cancel 'x' button to the last selected token
+                if (isSel && idx === maxSelIdx) {
+                    var cancelBtn = document.createElement("span");
+                    cancelBtn.className = "phrase-pending-cancel-btn";
+                    cancelBtn.innerHTML = "&times;";
+                    cancelBtn.title = "Cancel Selection (إلغاء التحديد)";
+                    b.appendChild(cancelBtn);
+                }
             });
         },
 
@@ -172,7 +201,7 @@
                         if (HS.DOM && HS.DOM.appliedPhrasesWrap && HS.DOM.appliedPhrasesList) {
                             var count = HS.State.appliedPhrases.length;
                             if (HS.DOM.appliedPhrasesCount) HS.DOM.appliedPhrasesCount.textContent = count;
-                            HS.DOM.appliedPhrasesWrap.style.display = (count > 0) ? "flex" : "none";
+                            HS.DOM.appliedPhrasesWrap.style.display = "none";
                             HS.DOM.appliedPhrasesList.innerHTML = "";
 
                             // [EV-05 / TASK-601] Populate Interactive Mini-Sequencer Track
@@ -290,6 +319,10 @@
             var buttons = HS.DOM.tokensBoard.querySelectorAll(".word-token");
             var applied = HS.State.appliedPhrases || [];
 
+            // Remove existing inline delete buttons
+            var oldDelBtns = HS.DOM.tokensBoard.querySelectorAll(".phrase-inline-del-btn");
+            oldDelBtns.forEach(function (btn) { btn.remove(); });
+
             buttons.forEach(function (b) {
                 var idx = parseInt(b.dataset.tokenIndex, 10);
                 var tokenObj = HS.State.phraseTokens[idx];
@@ -298,7 +331,6 @@
                 var matchedPhrase = null;
                 for (var i = 0; i < applied.length; i++) {
                     var ap = applied[i];
-                    // Strict character index overlap: ensures ONLY the exact selected word occurrence is matched
                     if (typeof ap.charStart === "number" && typeof ap.charEnd === "number" && ap.charEnd > ap.charStart) {
                         if (tokenObj.charStart < ap.charEnd && tokenObj.charEnd > ap.charStart) {
                             matchedPhrase = ap;
@@ -319,9 +351,8 @@
                     b.style.setProperty("--applied-bg", HS.Bridge.hexToRgbaCss(col, 0.28));
                     b.style.setProperty("--applied-border", HS.Bridge.hexToRgbaCss(col, 0.75));
                     b.style.setProperty("--applied-glow", HS.Bridge.hexToRgbaCss(col, 0.40));
-                    b.title = 'Highlighted: "' + (matchedPhrase.text || tokenObj.text) + '" — Click to erase from AE';
+                    b.title = 'Phrase: "' + (matchedPhrase.text || tokenObj.text) + '" — Click to edit properties';
 
-                    // Ensure applied tokens are not counted in pending selection
                     var selPos = HS.State.selectedTokenIndices.indexOf(idx);
                     if (selPos !== -1) {
                         HS.State.selectedTokenIndices.splice(selPos, 1);
@@ -330,6 +361,8 @@
                 } else {
                     b.classList.remove("applied-highlight");
                     b.classList.remove("eraser-hover");
+                    b.classList.remove("editing-phrase-token");
+                    b.classList.remove("phrase-selected");
                     delete b.dataset.appliedPhraseId;
                     delete b.dataset.appliedPhraseText;
                     b.style.removeProperty("--applied-color");
@@ -337,6 +370,20 @@
                     b.style.removeProperty("--applied-border");
                     b.style.removeProperty("--applied-glow");
                     b.title = 'Word #' + (idx + 1) + ' (Chars ' + tokenObj.charStart + '..' + tokenObj.charEnd + ')';
+                }
+            });
+
+            // Attach inline delete button (x) to each applied phrase block
+            applied.forEach(function (ap) {
+                var phraseTokens = HS.DOM.tokensBoard.querySelectorAll('.word-token[data-applied-phrase-id="' + ap.id + '"]');
+                if (phraseTokens.length > 0) {
+                    var lastTk = phraseTokens[phraseTokens.length - 1];
+                    var delBtn = document.createElement("span");
+                    delBtn.className = "phrase-inline-del-btn";
+                    delBtn.dataset.phraseId = ap.id;
+                    delBtn.innerHTML = "&times;";
+                    delBtn.title = 'Detach / Remove "' + (ap.text || "Phrase") + '" from AE (فك العبارة من الصندوق)';
+                    lastTk.appendChild(delBtn);
                 }
             });
 
@@ -588,16 +635,8 @@
 
             if (HS.DOM.btnPhraseClearSel) {
                 HS.DOM.btnPhraseClearSel.addEventListener("click", function () {
-                    HS.State.selectedTokenIndices = [];
-                    HS.State.lastClickedTokenIndex = -1;
-                    HS.PhraseManager.syncTokenStyles();
-            HS.PhraseManager.updateBadge();
-            if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices.length > 0) {
-                if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) {
-                    HS.Actions.applyPhraseHighlightDebounced(180);
-                }
-            }
-        });
+                    HS.PhraseManager.clearSelection();
+                });
             }
 
             // Restore saved phrase recent color if exists
@@ -847,20 +886,52 @@
         var board = HS.DOM.tokensBoard;
 
         board.addEventListener("click", function (e) {
+            // 1. Dedicated Delete Button (inline X on applied phrase) -> ONLY WAY TO DETACH FROM AE!
+            var delBtn = e.target.closest(".phrase-inline-del-btn");
+            if (delBtn) {
+                e.stopPropagation();
+                e.preventDefault();
+                var phrId = delBtn.dataset.phraseId;
+                if (phrId) {
+                    if (HS.State.selectedPhraseId === phrId) {
+                        HS.PhraseManager.deselectPhrase();
+                    }
+                    HS.PhraseManager.removePhrase(phrId);
+                }
+                return;
+            }
+
+            // 2. Pending selection cancel button (inline X on selected phrase)
+            var cancelBtn = e.target.closest(".phrase-pending-cancel-btn");
+            if (cancelBtn) {
+                e.stopPropagation();
+                e.preventDefault();
+                HS.PhraseManager.clearSelection();
+                return;
+            }
+
+            // 3. Word token interaction
             var element = e.target.closest(".word-token");
-            if (!element) return;
+            if (!element) {
+                if (HS.State.selectedPhraseId) {
+                    HS.PhraseManager.deselectPhrase();
+                }
+                return;
+            }
+
             var idx = parseInt(element.dataset.tokenIndex, 10);
             if (isNaN(idx)) return;
 
-            // If already highlighted in AE, click acts as an instant Eraser
+            // 3a. If clicking an applied phrase token -> SELECT FOR LIVE MODULATION (NEVER DELETE!)
             var appliedId = element.dataset.appliedPhraseId;
             if (appliedId) {
                 e.stopPropagation();
                 e.preventDefault();
-                HS.PhraseManager.removePhrase(appliedId);
+                HS.PhraseManager.selectPhrase(appliedId);
                 return;
             }
 
+            // 3b. If clicking an un-applied token:
             if (HS.State.selectedPhraseId) {
                 HS.PhraseManager.deselectPhrase();
             }
@@ -884,6 +955,7 @@
                 }
                 HS.State.lastClickedTokenIndex = idx;
             }
+
             HS.PhraseManager.syncTokenStyles();
             HS.PhraseManager.updateBadge();
             if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices.length > 0) {
@@ -907,15 +979,7 @@
 
         board.addEventListener("mouseover", function (e) {
             var element = e.target.closest(".word-token");
-            if (!element) return;
-            var phrId = element.dataset.appliedPhraseId;
-            if (phrId) {
-                board.querySelectorAll('.word-token[data-applied-phrase-id="' + phrId + '"]').forEach(function (el) {
-                    el.classList.add("eraser-hover");
-                });
-                return;
-            }
-
+            if (!element || element.dataset.appliedPhraseId) return;
             var idx = parseInt(element.dataset.tokenIndex, 10);
             if (isNaN(idx)) return;
 
@@ -928,17 +992,6 @@
                 }
                 HS.PhraseManager.syncTokenStyles();
                 HS.PhraseManager.updateBadge();
-            }
-        });
-
-        board.addEventListener("mouseout", function (e) {
-            var element = e.target.closest(".word-token");
-            if (!element) return;
-            var phrId = element.dataset.appliedPhraseId;
-            if (phrId) {
-                board.querySelectorAll('.word-token[data-applied-phrase-id="' + phrId + '"]').forEach(function (el) {
-                    el.classList.remove("eraser-hover");
-                });
             }
         });
     };

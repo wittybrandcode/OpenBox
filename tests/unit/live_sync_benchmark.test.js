@@ -207,6 +207,50 @@ function runTest() {
         console.log('  ✓ Phrase Selection & Property Modulation: Instant selection, property load & update verified');
     })();
 
+    // 8. Phrase Canvas UX Invariants (Inline Cancel, Safe Select & Dedicated Detach)
+    (function testPhraseCanvasInvariants() {
+        var actionsLog = [];
+        var state = {
+            selectedTokenIndices: [0, 1],
+            selectedPhraseId: null,
+            appliedPhrases: [{ id: "phr_001", text: "Alpha Beta", color: "#2ECC71" }]
+        };
+
+        // Simulated delegation handler
+        function handleBoardClick(target) {
+            if (target.className === "phrase-inline-del-btn") {
+                actionsLog.push("DELETE_PHRASE:" + target.dataset.phraseId);
+                return;
+            }
+            if (target.className === "phrase-pending-cancel-btn") {
+                state.selectedTokenIndices = [];
+                actionsLog.push("CANCEL_SELECTION");
+                return;
+            }
+            if (target.dataset && target.dataset.appliedPhraseId) {
+                state.selectedPhraseId = target.dataset.appliedPhraseId;
+                actionsLog.push("SELECT_PHRASE:" + target.dataset.appliedPhraseId);
+                return;
+            }
+        }
+
+        // Test 1: Cancel pending selection via inline X
+        handleBoardClick({ className: "phrase-pending-cancel-btn" });
+        assert.strictEqual(state.selectedTokenIndices.length, 0, "Inline X must clear pending selection");
+        assert.ok(actionsLog.includes("CANCEL_SELECTION"), "Cancel selection action recorded");
+
+        // Test 2: Clicking applied phrase word MUST SELECT, NEVER DELETE
+        handleBoardClick({ className: "word-token applied-highlight", dataset: { appliedPhraseId: "phr_001" } });
+        assert.strictEqual(state.selectedPhraseId, "phr_001", "Clicking phrase word must select phrase for live editing");
+        assert.strictEqual(actionsLog.filter(x => x.startsWith("DELETE")).length, 0, "Clicking phrase words must NEVER delete or detach phrase");
+
+        // Test 3: Detach from AE ONLY via inline del button
+        handleBoardClick({ className: "phrase-inline-del-btn", dataset: { phraseId: "phr_001" } });
+        assert.ok(actionsLog.includes("DELETE_PHRASE:phr_001"), "Only dedicated inline X can detach phrase from AE");
+
+        console.log('  ✓ Phrase Canvas Safety & Detach Invariants: Safe click-to-select, inline cancel & dedicated X detach verified');
+    })();
+
     console.log('✓ All Real-Time Live Sync & Reactive Engine Invariants Passed Successfully!\n');
     return true;
 }

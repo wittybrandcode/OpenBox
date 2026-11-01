@@ -2307,21 +2307,82 @@ label {
     transition: background 0.14s ease, box-shadow 0.14s ease;
 }
 
-/* Hovering an already-highlighted token turns into an intuitive Eraser cue */
-.word-token.applied-highlight:hover,
-.word-token.applied-highlight.eraser-hover {
-    background: rgba(255, 71, 87, 0.30) !important;
-    border-color: #ff4757 !important;
-    color: #ff6b81 !important;
-    box-shadow: 0 0 12px rgba(255, 71, 87, 0.50) !important;
-    text-decoration: line-through;
+/* Hovering an already-highlighted token indicates selectable highlight */
+.word-token.applied-highlight:hover {
+    background: var(--applied-bg, rgba(46, 204, 113, 0.38)) !important;
+    border-color: var(--applied-color, #2ecc71) !important;
+    color: #ffffff !important;
+    filter: brightness(1.15);
     cursor: pointer;
 }
 
-.word-token.applied-highlight:hover::after,
-.word-token.applied-highlight.eraser-hover::after {
-    background: #ff4757;
-    box-shadow: 0 0 6px #ff4757;
+.word-token.applied-highlight.phrase-selected,
+.word-token.editing-phrase-token {
+    outline: 2px solid var(--accent-amber, #ffd13b) !important;
+    outline-offset: 1px !important;
+    box-shadow: 0 0 14px rgba(255, 209, 59, 0.65) !important;
+    z-index: 5;
+}
+
+/* Inline Action Buttons inside Word Canvas */
+.phrase-inline-del-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-inline-start: 6px;
+    background: rgba(0, 0, 0, 0.50);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.phrase-inline-del-btn:hover {
+    background: #ff4757 !important;
+    border-color: #ff4757 !important;
+    color: #ffffff !important;
+    transform: scale(1.18);
+    box-shadow: 0 0 6px rgba(255, 71, 87, 0.8);
+}
+
+.phrase-pending-cancel-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-inline-start: 6px;
+    background: rgba(0, 0, 0, 0.40);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.phrase-pending-cancel-btn:hover {
+    background: #ff4757 !important;
+    border-color: #ff4757 !important;
+    color: #ffffff !important;
+    transform: scale(1.18);
+    box-shadow: 0 0 6px rgba(255, 71, 87, 0.8);
+}
+
+#applied-phrases-wrap {
+    display: none !important;
 }
 
 /* ============================================================

@@ -701,13 +701,15 @@
             }
         },
 
-        setPhraseShape: function (shape) {
+        setPhraseShape: function (shape, skipSync) {
             HS.markInteraction();
             if (HS.DOM && HS.DOM.phraseStyleSelect) {
                 HS.DOM.phraseStyleSelect.value = shape;
             }
             HS.Controls.syncPhraseShapeButtons();
-            if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices && HS.State.selectedTokenIndices.length > 0) {
+            if (!skipSync && HS.State.selectedPhraseId && HS.PhraseManager && HS.PhraseManager.setPhraseParam) {
+                HS.PhraseManager.setPhraseParam(HS.State.selectedPhraseId, "shape", shape);
+            } else if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices && HS.State.selectedTokenIndices.length > 0) {
                 if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) HS.Actions.applyPhraseHighlightDebounced(150);
             }
             var shapeLabels = {
@@ -727,14 +729,16 @@
             });
         },
 
-        setPhraseMotion: function (motion) {
+        setPhraseMotion: function (motion, skipSync) {
             HS.markInteraction();
             if (HS.DOM && HS.DOM.phraseMotionSelect) {
                 HS.DOM.phraseMotionSelect.value = motion;
                 HS.DOM.phraseMotionSelect.dispatchEvent(new Event("change", { bubbles: true }));
             }
             HS.Controls.syncPhraseMotionButtons();
-            if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices && HS.State.selectedTokenIndices.length > 0) {
+            if (!skipSync && HS.State.selectedPhraseId && HS.PhraseManager && HS.PhraseManager.setPhraseParam) {
+                HS.PhraseManager.setPhraseParam(HS.State.selectedPhraseId, "motion", motion);
+            } else if (HS.State.phraseLiveUpdate !== false && HS.State.selectedTokenIndices && HS.State.selectedTokenIndices.length > 0) {
                 if (HS.Actions && HS.Actions.applyPhraseHighlightDebounced) HS.Actions.applyPhraseHighlightDebounced(150);
             }
             var motionLabels = {
